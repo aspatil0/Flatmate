@@ -119,5 +119,14 @@ This project is licensed under the MIT License.
 ## 📬 Contact
 
 For any queries or collaboration:
-- Email: your-email@example.com  
+- Email: aspatil2904@gmail.com
 - Project Owner: Adityaraj Patil
+
+## ⚖️ Intellectual Property Notice
+
+All rights to the concept, idea, design, and implementation of the **Flatmate** platform are the exclusive property of the author.
+
+This project is protected under applicable intellectual property laws. Unauthorized use, reproduction, distribution, or modification of this idea or its components without prior written permission from the owner is strictly prohibited.
+
+For permissions, collaborations, or licensing inquiries, please contact:
+**Adityaraj Patil**
