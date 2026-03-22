@@ -1,0 +1,81 @@
+flatmate/
+│
+├── frontend/                # React / Next.js App
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   ├── layout/
+│   │   │   ├── forms/
+│   │   │   └── cards/
+│   │   │
+│   │   ├── pages/          # If using React Router
+│   │   │   ├── Home.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── Signup.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── PostFlat.jsx
+│   │   │   ├── Listings.jsx
+│   │   │   └── Profile.jsx
+│   │   │
+│   │   ├── routes/
+│   │   │   └── AppRoutes.jsx
+│   │   │
+│   │   ├── services/       # API calls
+│   │   │   └── api.js
+│   │   │
+│   │   ├── context/        # Auth / Global State
+│   │   │   └── AuthContext.jsx
+│   │   │
+│   │   ├── hooks/
+│   │   │
+│   │   ├── utils/
+│   │   │
+│   │   ├── styles/
+│   │   │
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   │
+│   ├── package.json
+│   └── .env
+│
+│
+├── backend/                # Node.js + Express API
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js
+│   │   │
+│   │   ├── controllers/
+│   │   │   ├── authController.js
+│   │   │   ├── userController.js
+│   │   │   ├── listingController.js
+│   │   │   └── matchController.js
+│   │   │
+│   │   ├── models/
+│   │   │   ├── User.js
+│   │   │   ├── Listing.js
+│   │   │   └── Match.js
+│   │   │
+│   │   ├── routes/
+│   │   │   ├── authRoutes.js
+│   │   │   ├── userRoutes.js
+│   │   │   ├── listingRoutes.js
+│   │   │   └── matchRoutes.js
+│   │   │
+│   │   ├── middleware/
+│   │   │   ├── authMiddleware.js
+│   │   │   └── errorMiddleware.js
+│   │   │
+│   │   ├── utils/
+│   │   │   └── generateToken.js
+│   │   │
+│   │   ├── app.js
+│   │   └── server.js
+│   │
+│   ├── package.json
+│   └── .env
+│
+│
+├── README.md
+└── .gitignore
