@@ -63,17 +63,6 @@ Flatmate allows users to:
 
 ---
 
-## 🧠 How It Works
-
-1. User signs up and creates a profile  
-2. Adds flat details and posts listing  
-3. Other users browse/search listings  
-4. Interested users connect via chat  
-5. Both parties confirm → deal gets locked  
-6. Listing marked as **"Booked"**
-
----
-
 ## 🛠️ Tech Stack (Suggested)
 
 - **Frontend:** React / Next.js  
