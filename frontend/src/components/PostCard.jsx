@@ -1,0 +1,52 @@
+import React from 'react';
+
+const PostCard = ({ post, onInterested }) => {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-soft transition-all duration-300 overflow-hidden flex flex-col h-full">
+      <div className="relative h-48 w-full">
+        <img src={post.images[0]} alt={post.society} className="w-full h-full object-cover" />
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-primary-600">
+          ₹{post.rent}/mo
+        </div>
+      </div>
+      <div className="p-5 flex-grow flex flex-col">
+        <h3 className="text-xl font-bold text-dark-900 mb-2 truncate">{post.society}</h3>
+        
+        <div className="flex items-center text-gray-500 text-sm mb-4 space-x-4">
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            {post.area} sqft
+          </div>
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-1 text-primary-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path></svg>
+            {post.postedBy}
+          </div>
+        </div>
+
+        <div className="flex space-x-2 text-xs mb-6">
+          {post.smokerAllowed ? (
+            <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-100">Smoking ✔</span>
+          ) : (
+            <span className="bg-red-50 text-red-700 px-2 py-1 rounded-full border border-red-100">Smoking ✘</span>
+          )}
+          {post.drinkerAllowed ? (
+            <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-100">Drinking ✔</span>
+          ) : (
+            <span className="bg-red-50 text-red-700 px-2 py-1 rounded-full border border-red-100">Drinking ✘</span>
+          )}
+        </div>
+
+        <div className="mt-auto">
+          <button 
+            onClick={() => onInterested(post)}
+            className="w-full bg-primary-50 text-primary-600 font-semibold py-2.5 rounded-xl hover:bg-primary-600 hover:text-white transition-colors duration-300"
+          >
+            Interested
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PostCard;
