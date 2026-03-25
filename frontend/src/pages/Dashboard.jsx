@@ -11,51 +11,51 @@ import flat2 from '../assets/flat2.png';
 const MOCK_POSTS = [
   {
     id: 1, society: 'DLF Magnolias', city: 'Gurugram', locality: 'Sector 42', rent: 22000, totalRent: 66000, deposit: 45000,
-    area: 1400, images: [flat1, flat2, flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Alex K.', auraScore: 8.9
+    area: 1400, images: [flat1, flat2, flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Alex K.', auraScore: 2015
   },
   {
     id: 2, society: 'Ireo Skyon', city: 'Gurugram', locality: 'Sector 60', rent: 18000, totalRent: 36000, deposit: 30000,
-    area: 1050, images: [flat2, flat1, flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Sarah M.', auraScore: 9.2
+    area: 1050, images: [flat2, flat1, flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Sarah M.', auraScore: 1990
   },
   {
     id: 3, society: 'M3M Golf Estate', city: 'Gurugram', locality: 'Sector 65', rent: 25000, totalRent: 75000, deposit: 50000,
-    area: 1800, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rahul V.', auraScore: 7.5
+    area: 1800, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rahul V.', auraScore: 2050
   },
   {
     id: 4, society: 'Amanora Park Town', city: 'Pune', locality: 'Hadapsar', rent: 15000, totalRent: 45000, deposit: 40000,
-    area: 1200, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Neha S.', auraScore: 8.1
+    area: 1200, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Neha S.', auraScore: 2005
   },
   {
     id: 5, society: 'Godrej Infinity', city: 'Pune', locality: 'Keshav Nagar', rent: 16000, totalRent: 48000, deposit: 35000,
-    area: 1100, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Amit P.', auraScore: 6.8
+    area: 1100, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Amit P.', auraScore: 1980
   },
   {
     id: 6, society: 'Blue Ridge', city: 'Pune', locality: 'Hinjewadi', rent: 14000, totalRent: 42000, deposit: 30000,
-    area: 1050, images: [flat2, flat1], smokerAllowed: true, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rohan D.', auraScore: 9.5
+    area: 1050, images: [flat2, flat1], smokerAllowed: true, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rohan D.', auraScore: 2100
   },
   {
     id: 7, society: 'Kolte Patil Life Republic', city: 'Pune', locality: 'Hinjewadi', rent: 13000, totalRent: 39000, deposit: 25000,
-    area: 950, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Priya K.', auraScore: 8.4
+    area: 950, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Priya K.', auraScore: 2025
   },
   {
     id: 8, society: 'Pristine Prolife', city: 'Pune', locality: 'Wakad', rent: 17000, totalRent: 51000, deposit: 40000,
-    area: 1250, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Anyone', postedBy: 'Suman T.', auraScore: 7.1
+    area: 1250, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Anyone', postedBy: 'Suman T.', auraScore: 1995
   },
   {
     id: 9, society: 'Majestique Rhythm', city: 'Pune', locality: 'Yewalewadi', rent: 11000, totalRent: 33000, deposit: 20000,
-    area: 850, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Karan J.', auraScore: 8.8
+    area: 850, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Karan J.', auraScore: 2040
   },
   {
     id: 10, society: 'Kumar Piccadilly', city: 'Pune', locality: 'Katraj', rent: 12000, totalRent: 36000, deposit: 25000,
-    area: 900, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Aditi M.', auraScore: 9.8
+    area: 900, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Aditi M.', auraScore: 2085
   },
   {
     id: 11, society: 'Ganga Ishanya', city: 'Pune', locality: 'Katraj', rent: 16000, totalRent: 48000, deposit: 35000,
-    area: 1150, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Siddharth R.', auraScore: 6.5
+    area: 1150, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Siddharth R.', auraScore: 1970
   },
   {
     id: 12, society: 'Lodha Belmondo', city: 'Pune', locality: 'Gahunje', rent: 20000, totalRent: 60000, deposit: 50000,
-    area: 1500, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Vikram B.', auraScore: 9.1
+    area: 1500, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Vikram B.', auraScore: 2060
   }
 ];
 
@@ -71,17 +71,16 @@ const Dashboard = () => {
 
   // Aura System state
   const [pastFlatmates, setPastFlatmates] = useState([
-    { id: 101, name: 'Rahul V.', joined: 'Jan 2025', left: 'Dec 2025', auraScore: 8.5, hasRated: false },
-    { id: 102, name: 'Sarah M.', joined: 'Feb 2024', left: 'Jan 2025', auraScore: 9.2, hasRated: true },
-    { id: 103, name: 'Amit P.', joined: 'Mar 2023', left: 'Jan 2024', auraScore: 6.8, hasRated: false },
+    { id: 101, name: 'Rahul V.', joined: 'Jan 2025', left: 'Dec 2025', auraScore: 2010, hasRated: false },
+    { id: 102, name: 'Sarah M.', joined: 'Feb 2024', left: 'Jan 2025', auraScore: 1995, hasRated: true },
+    { id: 103, name: 'Amit P.', joined: 'Mar 2023', left: 'Jan 2024', auraScore: 2045, hasRated: false },
   ]);
 
   const handleRateFlatmate = (id, rating) => {
     setPastFlatmates(prev => prev.map(fm => {
       if(fm.id === id) {
-        // Weighted average mock update
-        const newScore = ((fm.auraScore * 10) + rating) / 11;
-        return { ...fm, auraScore: parseFloat(newScore.toFixed(1)), hasRated: true };
+        // Cumulative aura score update
+        return { ...fm, auraScore: fm.auraScore + rating, hasRated: true };
       }
       return fm;
     }));
@@ -103,7 +102,8 @@ const Dashboard = () => {
       id: posts.length + 1,
       ...newPostData,
       images: [flat1, flat2], // fallback mock images
-      postedBy: 'You'
+      postedBy: 'You',
+      auraScore: 2000
     };
     setPosts([newPost, ...posts]);
     setIsAddingPost(false);
@@ -129,7 +129,7 @@ const Dashboard = () => {
             <p className="text-xs text-gray-500 truncate mb-1">User ID: #FM-8924</p>
             <div className="flex items-center text-xs font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-md inline-flex border border-amber-100">
               <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-              Aura: 9.5/10
+              Aura: 2000
             </div>
           </div>
         </div>
@@ -238,13 +238,13 @@ const Dashboard = () => {
                   <p className="text-sm text-gray-500">Shared flat from {fm.joined} to {fm.left}</p>
                   <div className="mt-3 flex items-center text-sm font-bold text-amber-500 bg-amber-50 inline-flex px-3 py-1 rounded-lg border border-amber-100">
                     <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                    Aura Score: {fm.auraScore}/10
+                    Aura Score: {fm.auraScore}
                   </div>
                 </div>
                 {!fm.hasRated ? (
                   <div className="flex items-center gap-3">
                     <select id={`rate-${fm.id}`} className="px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-primary-500 bg-gray-50 font-medium">
-                      {[1,2,3,4,5,6,7,8,9,10].map(num => <option key={num} value={num}>{num} / 10</option>)}
+                      {Array.from({length: 21}, (_, i) => i - 10).map(num => <option key={num} value={num}>{num > 0 ? `+${num}` : num}</option>)}
                     </select>
                     <button 
                       onClick={() => {

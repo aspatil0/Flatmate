@@ -90,6 +90,26 @@ const Home = () => {
         </div>
       </section>
 
+      {/* PG Portal Section */}
+      <section className="py-20 bg-dark-900 border-t border-dark-800 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary-600/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <span className="inline-block py-1 px-4 rounded-full bg-dark-800 text-primary-400 text-xs font-bold mb-6 tracking-widest uppercase border border-dark-700">
+            Introducing Flatmate PG
+          </span>
+          <h2 className="text-4xl lg:text-5xl font-extrabold text-white mb-6">
+            Looking for a PG? <span className="text-gray-400">Or Own One?</span>
+          </h2>
+          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10">
+            We have launched a dedicated portal for Paying Guest accommodations. Experience RedBus-style visual bed selection, instant booking, and seamless property management for PG owners.
+          </p>
+          <Link to="/pg" className="inline-block bg-gradient-to-r from-primary-600 to-purple-600 text-white font-bold text-lg px-10 py-4 rounded-xl shadow-lg hover:shadow-glow hover:-translate-y-1 transition-all duration-300">
+            Explore PG Portal
+          </Link>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <section id="how-it-works" className="py-24 bg-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
