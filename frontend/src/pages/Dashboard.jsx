@@ -10,40 +10,52 @@ import flat2 from '../assets/flat2.png';
 
 const MOCK_POSTS = [
   {
-    id: 1,
-    society: 'DLF Magnolias',
-    rent: 22000,
-    totalRent: 66000,
-    deposit: 45000,
-    area: 1400,
-    images: [flat1, flat2, flat1, flat2], // using same mocked images
-    smokerAllowed: true,
-    drinkerAllowed: true,
-    postedBy: 'Alex K.'
+    id: 1, society: 'DLF Magnolias', city: 'Gurugram', locality: 'Sector 42', rent: 22000, totalRent: 66000, deposit: 45000,
+    area: 1400, images: [flat1, flat2, flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Alex K.'
   },
   {
-    id: 2,
-    society: 'Ireo Skyon',
-    rent: 18000,
-    totalRent: 36000,
-    deposit: 30000,
-    area: 1050,
-    images: [flat2, flat1, flat2, flat1],
-    smokerAllowed: false,
-    drinkerAllowed: true,
-    postedBy: 'Sarah M.'
+    id: 2, society: 'Ireo Skyon', city: 'Gurugram', locality: 'Sector 60', rent: 18000, totalRent: 36000, deposit: 30000,
+    area: 1050, images: [flat2, flat1, flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Sarah M.'
   },
   {
-    id: 3,
-    society: 'M3M Golf Estate',
-    rent: 25000,
-    totalRent: 75000,
-    deposit: 50000,
-    area: 1800,
-    images: [flat1, flat2],
-    smokerAllowed: false,
-    drinkerAllowed: false,
-    postedBy: 'Rahul V.'
+    id: 3, society: 'M3M Golf Estate', city: 'Gurugram', locality: 'Sector 65', rent: 25000, totalRent: 75000, deposit: 50000,
+    area: 1800, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rahul V.'
+  },
+  {
+    id: 4, society: 'Amanora Park Town', city: 'Pune', locality: 'Hadapsar', rent: 15000, totalRent: 45000, deposit: 40000,
+    area: 1200, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Neha S.'
+  },
+  {
+    id: 5, society: 'Godrej Infinity', city: 'Pune', locality: 'Keshav Nagar', rent: 16000, totalRent: 48000, deposit: 35000,
+    area: 1100, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Amit P.'
+  },
+  {
+    id: 6, society: 'Blue Ridge', city: 'Pune', locality: 'Hinjewadi', rent: 14000, totalRent: 42000, deposit: 30000,
+    area: 1050, images: [flat2, flat1], smokerAllowed: true, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rohan D.'
+  },
+  {
+    id: 7, society: 'Kolte Patil Life Republic', city: 'Pune', locality: 'Hinjewadi', rent: 13000, totalRent: 39000, deposit: 25000,
+    area: 950, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Priya K.'
+  },
+  {
+    id: 8, society: 'Pristine Prolife', city: 'Pune', locality: 'Wakad', rent: 17000, totalRent: 51000, deposit: 40000,
+    area: 1250, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Anyone', postedBy: 'Suman T.'
+  },
+  {
+    id: 9, society: 'Majestique Rhythm', city: 'Pune', locality: 'Yewalewadi', rent: 11000, totalRent: 33000, deposit: 20000,
+    area: 850, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Karan J.'
+  },
+  {
+    id: 10, society: 'Kumar Piccadilly', city: 'Pune', locality: 'Katraj', rent: 12000, totalRent: 36000, deposit: 25000,
+    area: 900, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Aditi M.'
+  },
+  {
+    id: 11, society: 'Ganga Ishanya', city: 'Pune', locality: 'Katraj', rent: 16000, totalRent: 48000, deposit: 35000,
+    area: 1150, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Siddharth R.'
+  },
+  {
+    id: 12, society: 'Lodha Belmondo', city: 'Pune', locality: 'Gahunje', rent: 20000, totalRent: 60000, deposit: 50000,
+    area: 1500, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Vikram B.'
   }
 ];
 
@@ -55,6 +67,15 @@ const Dashboard = () => {
   // Modals
   const [selectedPost, setSelectedPost] = useState(null);
   const [isAddingPost, setIsAddingPost] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPosts = posts.filter(post => {
+    const query = searchQuery.toLowerCase();
+    const cityMatch = post.city ? post.city.toLowerCase().includes(query) : false;
+    const localityMatch = post.locality ? post.locality.toLowerCase().includes(query) : false;
+    const societyMatch = post.society ? post.society.toLowerCase().includes(query) : false;
+    return cityMatch || localityMatch || societyMatch;
+  });
 
   const handleLogout = () => navigate('/');
 
@@ -130,7 +151,7 @@ const Dashboard = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/50 p-6 sm:p-10 relative">
-        <header className="mb-8 flex justify-between items-end">
+        <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h1 className="text-3xl font-bold text-dark-900 mb-2">
               {activeTab === 'feed' ? 'Discover Flats' : 'Your Favorites'}
@@ -139,17 +160,36 @@ const Dashboard = () => {
               {activeTab === 'feed' ? 'Showing the latest premium flat listings available.' : 'Flats you have marked as interested.'}
             </p>
           </div>
+          {activeTab === 'feed' && (
+            <div className="w-full md:w-auto relative">
+              <input 
+                type="text" 
+                placeholder="Search city, area, keyword..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full md:w-80 px-4 py-3 pl-10 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all text-sm"
+              />
+              <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+          )}
         </header>
 
         {activeTab === 'feed' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {posts.map(post => (
-              <PostCard 
-                key={post.id} 
-                post={post} 
-                onInterested={(p) => setSelectedPost(p)} 
-              />
-            ))}
+            {filteredPosts.length > 0 ? (
+              filteredPosts.map(post => (
+                <PostCard 
+                  key={post.id} 
+                  post={post} 
+                  onInterested={(p) => setSelectedPost(p)} 
+                />
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-gray-500">
+                <p className="text-lg font-medium text-dark-600">No flats found matching your search.</p>
+                <p className="text-sm">Try adjusting your keywords.</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center p-20 text-center">

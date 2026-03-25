@@ -10,7 +10,8 @@ const PostCard = ({ post, onInterested }) => {
         </div>
       </div>
       <div className="p-5 flex-grow flex flex-col">
-        <h3 className="text-xl font-bold text-dark-900 mb-2 truncate">{post.society}</h3>
+        <h3 className="text-xl font-bold text-dark-900 mb-1 truncate">{post.society}</h3>
+        <p className="text-sm text-gray-500 mb-2 truncate">{post.locality ? `${post.locality}, ${post.city}` : post.city}</p>
         
         <div className="flex items-center text-gray-500 text-sm mb-4 space-x-4">
           <div className="flex items-center">
@@ -23,7 +24,16 @@ const PostCard = ({ post, onInterested }) => {
           </div>
         </div>
 
-        <div className="flex space-x-2 text-xs mb-6">
+        <div className="flex flex-wrap gap-2 text-xs mb-6">
+          {post.tenantType && (
+            <span className={`px-2 py-1 rounded-full border font-medium ${
+              post.tenantType === 'Girls' || post.tenantType === 'Boys' 
+                ? 'bg-red-50 text-red-700 border-red-200' 
+                : 'bg-gray-100 text-gray-700 border-gray-200'
+            }`}>
+              {post.tenantType === 'Anyone' ? 'Any Tenant' : `Only ${post.tenantType}`}
+            </span>
+          )}
           {post.smokerAllowed ? (
             <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-100">Smoking ✔</span>
           ) : (

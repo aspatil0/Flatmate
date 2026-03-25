@@ -1,16 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import authImg from '../assets/auth.png';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', password: '', termsAccepted: false, captchaAnswer: '' });
+  const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, sum: 0 });
+  const [error, setError] = useState('');
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  const generateCaptcha = () => {
+    const n1 = Math.floor(Math.random() * 9) + 1; // 1-9
+    const n2 = Math.floor(Math.random() * 9) + 1; // 1-9
+    setCaptcha({ num1: n1, num2: n2, sum: n1 + n2 });
+    setFormData(prev => ({ ...prev, captchaAnswer: '' }));
+  };
+
+  const handleChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setFormData({ ...formData, [e.target.name]: value });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+
+    if (!formData.termsAccepted) {
+      setError('You must accept the Terms and Conditions to register.');
+      return;
+    }
+
+    if (parseInt(formData.captchaAnswer) !== captcha.sum) {
+      setError('Incorrect captcha answer. Please try again.');
+      generateCaptcha();
+      return;
+    }
+
     // mock register logic
     console.log('Registering...', formData);
+    alert('Registration successful!');
   };
 
   return (
@@ -42,6 +72,11 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5 text-left">
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r-xl">
+                {error}
+              </div>
+            )}
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block text-sm font-medium text-dark-700 mb-2" htmlFor="firstName">First Name</label>
@@ -99,6 +134,42 @@ const Register = () => {
               />
             </div>
 
+            <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div className="flex items-center h-5">
+                <input 
+                  id="terms" 
+                  name="termsAccepted" 
+                  type="checkbox" 
+                  checked={formData.termsAccepted}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 cursor-pointer" 
+                  required
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="terms" className="font-medium text-dark-800 cursor-pointer">I agree to the <Link to="/contact" className="text-primary-600 hover:underline">Terms of Service</Link> & <Link to="/contact" className="text-primary-600 hover:underline">Privacy Policy</Link></label>
+                <p className="text-xs text-gray-500 mt-1">By continuing, I confirm I am not a robot.</p>
+              </div>
+            </div>
+
+            <div className="bg-primary-50/50 p-4 rounded-xl border border-primary-100/50">
+              <label className="block text-sm font-medium text-dark-800 mb-2">Security Check: What is {captcha.num1} + {captcha.num2}?</label>
+              <div className="flex gap-4 items-center">
+                <input 
+                  type="number"
+                  name="captchaAnswer"
+                  value={formData.captchaAnswer}
+                  onChange={handleChange}
+                  className="w-32 px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-center font-bold"
+                  placeholder="?"
+                  required
+                />
+                <button type="button" onClick={generateCaptcha} className="text-xs font-semibold text-primary-600 hover:text-primary-700 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 transition-colors">
+                  ↻ Reload
+                </button>
+              </div>
+            </div>
+
             <div className="pt-2">
               <button 
                 type="submit" 
@@ -116,7 +187,7 @@ const Register = () => {
           </div>
           
           <div className="mt-8 text-center text-xs text-gray-400">
-            By registering, you agree to our <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>
+            Make sure to solve the security puzzle before continuing!
           </div>
         </div>
       </div>

@@ -17,11 +17,15 @@ const Navbar = () => {
     { name: 'Home', path: '/' },
     { name: 'Features', path: '/#features' },
     { name: 'About', path: '/#how-it-works' },
-    { name: 'Contact', path: '/#contact' },
+    { name: 'Contact', path: '/contact' },
   ];
 
   const handleScrollTo = (e, path) => {
     if (path.startsWith('/#')) {
+      if (location.pathname !== '/') {
+        // Just let it navigate normally to the homepage with hash
+        return;
+      }
       const id = path.substring(2);
       const element = document.getElementById(id);
       if (element) {

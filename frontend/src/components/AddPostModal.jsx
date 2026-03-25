@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 
 const AddPostModal = ({ onClose, onAdd }) => {
   const [formData, setFormData] = useState({
-    society: '', rent: '', totalRent: '', area: '', deposit: '',
-    smokerAllowed: false, drinkerAllowed: false, imagesCount: 0
+    society: '', city: '', locality: '', rent: '', totalRent: '', area: '', deposit: '',
+    smokerAllowed: false, drinkerAllowed: false, imagesCount: 0, tenantType: 'Anyone'
   });
 
   const handleChange = (e) => {
@@ -42,8 +42,18 @@ const AddPostModal = ({ onClose, onAdd }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-dark-700 mb-2">Society Name</label>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Society Name / Keyword</label>
                 <input required type="text" name="society" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. DLF Magnolias"/>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">City</label>
+                <input required type="text" name="city" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. Pune"/>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Locality / Area</label>
+                <input required type="text" name="locality" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. Yewalewadi"/>
               </div>
 
               <div>
@@ -64,6 +74,15 @@ const AddPostModal = ({ onClose, onAdd }) => {
               <div>
                 <label className="block text-sm font-medium text-dark-700 mb-2">Total Area (sq.ft)</label>
                 <input required type="number" name="area" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="1200"/>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Preferred Tenant</label>
+                <select name="tenantType" value={formData.tenantType} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all bg-white">
+                  <option value="Anyone">Anyone</option>
+                  <option value="Boys">Boys Only</option>
+                  <option value="Girls">Girls Only</option>
+                </select>
               </div>
             </div>
 
