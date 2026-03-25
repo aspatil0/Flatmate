@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import flat1 from '../assets/flat1.png';
+import flat2 from '../assets/flat2.png';
+
 const MOCK_PROPERTIES = [
   {
     id: 1,
     name: 'Aditya Residency',
     city: 'Pune',
     locality: 'Katraj',
+    images: [flat1, flat2],
     // Generate 40 flats, each with 3 beds
     flats: Array.from({ length: 40 }, (_, f_idx) => ({
       id: `f-${f_idx + 1}`,
@@ -24,8 +28,33 @@ const PGOwnerDashboard = () => {
   const navigate = useNavigate();
   const [properties, setProperties] = useState(MOCK_PROPERTIES);
   const [selectedPropertyId, setSelectedPropertyId] = useState(1);
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
+  const [newPropertyData, setNewPropertyData] = useState({ name: '', city: '', locality: '', flatsCount: 10, bedsPerFlat: 3 });
 
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+
+  const handleAddProperty = (e) => {
+    e.preventDefault();
+    const newProperty = {
+      id: properties.length + 1,
+      name: newPropertyData.name,
+      city: newPropertyData.city,
+      locality: newPropertyData.locality,
+      images: [flat1, flat2], // Fallback mock images
+      flats: Array.from({ length: parseInt(newPropertyData.flatsCount) || 10 }, (_, f_idx) => ({
+        id: `nf-${Date.now()}-${f_idx}`,
+        flatNumber: 101 + f_idx,
+        beds: Array.from({ length: parseInt(newPropertyData.bedsPerFlat) || 3 }, (_, b_idx) => ({
+          id: `nb-${Date.now()}-${f_idx}-${b_idx}`,
+          isBooked: false
+        }))
+      }))
+    };
+    setProperties([...properties, newProperty]);
+    setSelectedPropertyId(newProperty.id);
+    setIsAddingProperty(false);
+    setNewPropertyData({ name: '', city: '', locality: '', flatsCount: 10, bedsPerFlat: 3 });
+  };
 
   const toggleBedStatus = (flatId, bedId) => {
     setProperties(prev => prev.map(prop => {
@@ -82,7 +111,7 @@ const PGOwnerDashboard = () => {
                 <div className="text-xs opacity-70">{p.locality}, {p.city}</div>
               </button>
             ))}
-            <button className="w-full text-left px-4 py-3 rounded-xl border border-dashed border-gray-300 text-gray-500 font-medium hover:bg-gray-50 hover:text-primary-600 transition-colors flex items-center justify-center">
+            <button onClick={() => setIsAddingProperty(true)} className="w-full text-left px-4 py-3 rounded-xl border border-dashed border-gray-300 text-gray-500 font-medium hover:bg-gray-50 hover:text-primary-600 transition-colors flex items-center justify-center">
               + Add Property
             </button>
           </div>
@@ -134,6 +163,19 @@ const PGOwnerDashboard = () => {
               </div>
             </header>
 
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-dark-900 mb-3">Property Images</h2>
+              <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2">
+                {selectedProperty.images.map((img, i) => (
+                  <img key={i} src={img} alt="Property" className="w-48 h-32 object-cover rounded-xl shadow-sm border border-gray-200" />
+                ))}
+                <button className="w-48 h-32 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-primary-600 hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                  <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span className="text-sm font-medium">Add Image</span>
+                </button>
+              </div>
+            </div>
+
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-dark-900">Bed Allocation (RedBus Style)</h2>
               <div className="flex gap-4 text-sm font-medium">
@@ -181,6 +223,64 @@ const PGOwnerDashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Add Property Modal */}
+      {isAddingProperty && (
+        <div className="fixed inset-0 bg-dark-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-xl font-bold text-dark-900">Add New PG Property</h2>
+              <button onClick={() => setIsAddingProperty(false)} className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-dark-900 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <form id="add-prop-form" onSubmit={handleAddProperty} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Property Name</label>
+                  <input required placeholder="e.g., Sunrise PG" value={newPropertyData.name} onChange={e => setNewPropertyData({...newPropertyData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">City</label>
+                    <input required placeholder="e.g., Pune" value={newPropertyData.city} onChange={e => setNewPropertyData({...newPropertyData, city: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Locality</label>
+                    <input required placeholder="e.g., Wakad" value={newPropertyData.locality} onChange={e => setNewPropertyData({...newPropertyData, locality: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Number of Flats</label>
+                    <input type="number" min="1" required value={newPropertyData.flatsCount} onChange={e => setNewPropertyData({...newPropertyData, flatsCount: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Beds Per Flat</label>
+                    <input type="number" min="1" max="10" required value={newPropertyData.bedsPerFlat} onChange={e => setNewPropertyData({...newPropertyData, bedsPerFlat: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Property Images</label>
+                  <div className="w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                    <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span className="text-sm font-medium">Click or drag images here to upload</span>
+                  </div>
+                </div>
+              </form>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex justify-end">
+              <div className="flex space-x-3">
+                <button type="button" onClick={() => setIsAddingProperty(false)} className="px-5 py-2.5 rounded-xl font-bold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="submit" form="add-prop-form" className="px-6 py-2.5 rounded-xl font-bold bg-primary-600 text-white hover:bg-primary-700 hover:shadow-glow transition-all">Create Property</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

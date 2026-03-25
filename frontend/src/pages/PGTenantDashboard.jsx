@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import flat1 from '../assets/flat1.png';
+import flat2 from '../assets/flat2.png';
+
 const MOCK_PROPERTIES = [
   {
     id: 1,
@@ -9,6 +12,7 @@ const MOCK_PROPERTIES = [
     locality: 'Katraj',
     rent: 6500,
     ownerPhone: '+91 8669792979',
+    images: [flat1, flat2],
     flats: Array.from({ length: 40 }, (_, f_idx) => ({
       id: `f-${f_idx + 1}`,
       flatNumber: 101 + f_idx,
@@ -26,6 +30,7 @@ const MOCK_PROPERTIES = [
     locality: 'Wakad',
     rent: 5500,
     ownerPhone: '+91 9876543210',
+    images: [flat2, flat1],
     flats: Array.from({ length: 10 }, (_, f_idx) => ({
       id: `f2-${f_idx + 1}`,
       flatNumber: 201 + f_idx,
@@ -41,6 +46,7 @@ const PGTenantDashboard = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProperty, setSelectedProperty] = useState(null);
+  const [bookingRequest, setBookingRequest] = useState(null); // { flat, bed, index }
   const [bookSuccess, setBookSuccess] = useState(null); // bedId of successful mock booking
 
   const filteredProperties = MOCK_PROPERTIES.filter(p => {
@@ -50,9 +56,10 @@ const PGTenantDashboard = () => {
            p.locality.toLowerCase().includes(q);
   });
 
-  const handleBookSeat = (bedId) => {
-    // Mock the booking flow
-    setBookSuccess(bedId);
+  const confirmBookSeat = () => {
+    if(!bookingRequest) return;
+    setBookSuccess(bookingRequest.bed.id);
+    setBookingRequest(null);
     setTimeout(() => {
       setBookSuccess(null);
     }, 4000);
@@ -143,6 +150,15 @@ const PGTenantDashboard = () => {
               </div>
             </header>
 
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-dark-900 mb-4">Property Gallery</h2>
+              <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-4">
+                {selectedProperty.images && selectedProperty.images.map((img, i) => (
+                  <img key={i} src={img} alt="Property Room" className="w-64 h-40 object-cover rounded-2xl shadow-sm border border-gray-100 flex-shrink-0" />
+                ))}
+              </div>
+            </div>
+
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-dark-900 mb-1">Select Your Bed</h2>
@@ -167,7 +183,7 @@ const PGTenantDashboard = () => {
                       <div key={bed.id} className="relative group">
                         <button
                           disabled={bed.isBooked}
-                          onClick={() => handleBookSeat(bed.id)}
+                          onClick={() => setBookingRequest({ flat, bed, index: idx + 1 })}
                           className={`
                             w-full relative flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all 
                             ${bed.isBooked 
@@ -223,6 +239,53 @@ const PGTenantDashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Confirmation Modal */}
+      {bookingRequest && (
+        <div className="fixed inset-0 bg-dark-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 transform transition-all scale-100 flex flex-col items-center text-center">
+            <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center text-primary-600 mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-dark-900 mb-2">Confirm Booking Request</h2>
+            <p className="text-gray-500 mb-6 font-medium">
+              You are about to request <strong className="text-dark-900">Bed {bookingRequest.index}</strong> in <strong className="text-dark-900">Flat {bookingRequest.flat.flatNumber}</strong> at {selectedProperty.name}.
+            </p>
+            
+            <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 w-full mb-8 text-left space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Monthly Rent</span>
+                <span className="font-bold text-dark-900">₹{selectedProperty.rent}/mo</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Deposit</span>
+                <span className="font-bold text-dark-900">₹{selectedProperty.rent * 2}</span>
+              </div>
+              <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between">
+                <span className="font-bold text-dark-900">Total payable to owner</span>
+                <span className="font-bold text-primary-600 text-lg">₹{selectedProperty.rent * 3}</span>
+              </div>
+            </div>
+            
+            <div className="flex gap-4 w-full">
+              <button 
+                onClick={() => setBookingRequest(null)}
+                className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmBookSeat}
+                className="flex-1 py-3 px-4 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 hover:shadow-glow transition-all"
+              >
+                Confirm Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

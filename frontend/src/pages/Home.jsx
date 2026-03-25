@@ -27,10 +27,13 @@ const Home = () => {
                 Connect with verified people, discover beautiful apartments, and experience stress-free living with our smart matching algorithm.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                <Link to="/register" className="w-full sm:w-auto btn-primary text-lg px-8 py-4">
+                <Link to="/register" className="w-full sm:w-auto btn-primary text-lg px-8 py-4 shadow-xl">
                   Get Started
                 </Link>
-                <a href="#features" className="w-full sm:w-auto btn-outline text-lg px-8 py-4">
+                <Link to="/pg" className="w-full sm:w-auto btn-outline text-lg px-8 py-4 bg-white">
+                  Rent a PG
+                </Link>
+                <a href="#features" className="w-full sm:w-auto text-gray-500 hover:text-primary-600 font-medium px-4 mt-2 sm:mt-0 transition-colors">
                   Explore Features
                 </a>
               </div>
