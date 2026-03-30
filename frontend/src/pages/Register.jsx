@@ -1,31 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { validatePasswordStrength, getStrengthColor } from '../lib/passwordValidator.js';
 import authImg from '../assets/auth.png';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', password: '', termsAccepted: false, captchaAnswer: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', termsAccepted: false, captchaAnswer: '' });
   const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, sum: 0 });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ isValid: false, score: 0, errors: [], strength: 'Very Weak' });
+  const navigate = useNavigate();
+  const { register } = useAuth();
 
   useEffect(() => {
     generateCaptcha();
   }, []);
 
   const generateCaptcha = () => {
-    const n1 = Math.floor(Math.random() * 9) + 1; // 1-9
-    const n2 = Math.floor(Math.random() * 9) + 1; // 1-9
+    const n1 = Math.floor(Math.random() * 9) + 1;
+    const n2 = Math.floor(Math.random() * 9) + 1;
     setCaptcha({ num1: n1, num2: n2, sum: n1 + n2 });
     setFormData(prev => ({ ...prev, captchaAnswer: '' }));
   };
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
+    const name = e.target.name;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Validate password strength when password field changes
+    if (name === 'password') {
+      const validation = validatePasswordStrength(value);
+      setPasswordStrength(validation);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!passwordStrength.isValid) {
+      setError('Your password does not meet the security requirements. Please review the requirements above.');
+      return;
+    }
 
     if (!formData.termsAccepted) {
       setError('You must accept the Terms and Conditions to register.');
@@ -38,9 +60,16 @@ const Register = () => {
       return;
     }
 
-    // mock register logic
-    console.log('Registering...', formData);
-    alert('Registration successful!');
+    setLoading(true);
+    try {
+      await register(formData.name, formData.email, formData.password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+      generateCaptcha();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,33 +106,20 @@ const Register = () => {
                 {error}
               </div>
             )}
-            <div className="flex gap-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-dark-700 mb-2" htmlFor="firstName">First Name</label>
-                <input 
-                  id="firstName"
-                  type="text" 
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
-                  placeholder="John"
-                  required
-                />
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-dark-700 mb-2" htmlFor="lastName">Last Name</label>
-                <input 
-                  id="lastName"
-                  type="text" 
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
-                  placeholder="Doe"
-                  required
-                />
-              </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-dark-700 mb-2" htmlFor="name">Full Name</label>
+              <input 
+                id="name"
+                type="text" 
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
+                placeholder="John Doe"
+                required
+                disabled={loading}
+              />
             </div>
 
             <div>
@@ -117,6 +133,7 @@ const Register = () => {
                 className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
                 placeholder="name@example.com"
                 required
+                disabled={loading}
               />
             </div>
             
@@ -128,10 +145,75 @@ const Register = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
+                className={`w-full px-4 py-3.5 rounded-xl border transition-all duration-300 outline-none ${
+                  formData.password ? (
+                    passwordStrength.isValid ? 'border-green-500 focus:ring-4 focus:ring-green-500/10' : 'border-red-500 focus:ring-4 focus:ring-red-500/10'
+                  ) : 'border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10'
+                }`}
                 placeholder="Create a strong password"
                 required
+                disabled={loading}
               />
+              
+              {formData.password && (
+                <div className="mt-3 space-y-2">
+                  {/* Password Strength Bar */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-full ${getStrengthColor(passwordStrength.score)} transition-all duration-300`}
+                        style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className={`text-xs font-semibold ${
+                      passwordStrength.score === 5 ? 'text-green-600' :
+                      passwordStrength.score === 4 ? 'text-lime-600' :
+                      passwordStrength.score === 3 ? 'text-yellow-600' :
+                      passwordStrength.score === 2 ? 'text-orange-600' :
+                      'text-red-600'
+                    }`}>
+                      {passwordStrength.strength}
+                    </span>
+                  </div>
+
+                  {/* Password Requirements Checklist */}
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="text-xs font-semibold text-dark-800 mb-2">Password Requirements:</p>
+                    <ul className="space-y-1">
+                      <li className={`flex items-center gap-2 text-xs ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-600'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${formData.password.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          {formData.password.length >= 8 ? '✓' : '○'}
+                        </span>
+                        At least 8 characters
+                      </li>
+                      <li className={`flex items-center gap-2 text-xs ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-600'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${/[A-Z]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          {/[A-Z]/.test(formData.password) ? '✓' : '○'}
+                        </span>
+                        One uppercase letter (A-Z)
+                      </li>
+                      <li className={`flex items-center gap-2 text-xs ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-600'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${/[a-z]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          {/[a-z]/.test(formData.password) ? '✓' : '○'}
+                        </span>
+                        One lowercase letter (a-z)
+                      </li>
+                      <li className={`flex items-center gap-2 text-xs ${/[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-600'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${/[0-9]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          {/[0-9]/.test(formData.password) ? '✓' : '○'}
+                        </span>
+                        One number (0-9)
+                      </li>
+                      <li className={`flex items-center gap-2 text-xs ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : 'text-gray-600'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? '✓' : '○'}
+                        </span>
+                        One special character (!@#$%^&*)
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -144,6 +226,7 @@ const Register = () => {
                   onChange={handleChange}
                   className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 cursor-pointer" 
                   required
+                  disabled={loading}
                 />
               </div>
               <div className="ml-3 text-sm">
@@ -163,8 +246,9 @@ const Register = () => {
                   className="w-32 px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-center font-bold"
                   placeholder="?"
                   required
+                  disabled={loading}
                 />
-                <button type="button" onClick={generateCaptcha} className="text-xs font-semibold text-primary-600 hover:text-primary-700 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 transition-colors">
+                <button type="button" onClick={generateCaptcha} className="text-xs font-semibold text-primary-600 hover:text-primary-700 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 transition-colors" disabled={loading}>
                   ↻ Reload
                 </button>
               </div>
@@ -173,9 +257,10 @@ const Register = () => {
             <div className="pt-2">
               <button 
                 type="submit" 
-                className="w-full bg-primary-600 text-white font-bold text-lg rounded-xl py-4 hover:bg-primary-700 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 shadow-glow"
+                disabled={loading || (formData.password && !passwordStrength.isValid)}
+                className="w-full bg-primary-600 text-white font-bold text-lg rounded-xl py-4 hover:bg-primary-700 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {loading ? 'Creating Account...' : 'Create Account'}
               </button>
             </div>
           </form>

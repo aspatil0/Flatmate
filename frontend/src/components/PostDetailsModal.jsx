@@ -59,10 +59,7 @@ const PostDetailsModal = ({ post, onClose }) => {
                 <p className="text-sm text-gray-500 mb-1">Your Rent</p>
                 <p className="text-2xl font-bold text-primary-600">₹{post.rent}<span className="text-sm font-normal text-gray-500">/mo</span></p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <p className="text-sm text-gray-500 mb-1">Total Rent</p>
-                <p className="text-2xl font-bold text-dark-900">₹{post.totalRent}<span className="text-sm font-normal text-gray-500">/mo</span></p>
-              </div>
+              
             </div>
 
             <h3 className="text-lg font-semibold text-dark-900 mb-4">Quick Facts</h3>
@@ -88,6 +85,10 @@ const PostDetailsModal = ({ post, onClose }) => {
                 <span className="font-medium">₹{post.deposit}</span>
               </li>
               <li className="flex justify-between border-b border-gray-100 pb-2">
+                <span className="text-gray-500">Preferred Tenants</span>
+                <span className="font-medium">{post.tenantType === 'Anyone' ? 'Any Tenant' : post.tenantType}</span>
+              </li>
+              <li className="flex justify-between border-b border-gray-100 pb-2">
                 <span className="text-gray-500">Smoking Allowed</span>
                 <span className="font-medium">{post.smokerAllowed ? 'Yes' : 'No'}</span>
               </li>
@@ -98,9 +99,7 @@ const PostDetailsModal = ({ post, onClose }) => {
             </ul>
 
             <div className="mt-auto flex gap-4">
-              <button className="flex-1 btn-primary py-4">
-                Chat with poster
-              </button>
+              
               <button className="w-14 h-14 flex items-center justify-center rounded-xl border-2 border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-all">
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
               </button>

@@ -1,19 +1,102 @@
 import React, { useState } from 'react';
+import ImageUpload from './ImageUpload.jsx';
 
-const AddPostModal = ({ onClose, onAdd }) => {
+const today = new Date().toISOString().split('T')[0];
+
+const AddPostModal = ({ onClose, onAdd, initialData = null, submitLabel = 'Publish Listing' }) => {
   const [formData, setFormData] = useState({
-    society: '', city: '', locality: '', rent: '', totalRent: '', area: '', deposit: '',
-    smokerAllowed: false, drinkerAllowed: false, imagesCount: 0, tenantType: 'Anyone'
+    title: initialData?.title || initialData?.society || '',
+    description: initialData?.description || '',
+    location: initialData?.location || [initialData?.city, initialData?.locality].filter(Boolean).join(', '),
+    rent: initialData?.rent || '',
+    contactNumber: initialData?.contactNumber || '',
+    deposit: initialData?.deposit || '',
+    roomType: initialData?.roomType || '1BHK',
+    bhkSize: initialData?.bhkSize || initialData?.area || '',
+    availableFrom: initialData?.availableFrom ? String(initialData.availableFrom).split('T')[0] : '',
+    tenantType: initialData?.tenantType || 'Anyone',
+    smokerAllowed: typeof initialData?.smokerAllowed === 'boolean' ? initialData.smokerAllowed : false,
+    drinkerAllowed: typeof initialData?.drinkerAllowed === 'boolean' ? initialData.drinkerAllowed : false,
+    amenities: Array.isArray(initialData?.amenities) ? initialData.amenities : []
   });
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState(initialData?.images || []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const amenitiesOptions = ['WiFi', 'AC', 'Kitchen', 'Parking', 'Gym', 'Garden'];
 
   const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'amenities') {
+      setFormData(prev => ({
+        ...prev,
+        amenities: checked
+          ? [...prev.amenities, value]
+          : prev.amenities.filter(a => a !== value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onAdd(formData);
+    setError('');
+    
+    if (!formData.title || !formData.description || !formData.location || !formData.rent || !formData.availableFrom) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.availableFrom < today) {
+      setError('Available from date cannot be in the past');
+      return;
+    }
+
+    if (imagePreviews.length === 0) {
+      setError('Please upload at least one image');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // For now, send image file names. In production, upload to cloud storage (S3, Cloudinary, etc.)
+      const postData = {
+        ...formData,
+        images: imagePreviews,
+        imageFiles,
+      };
+      
+      onAdd(postData);
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        location: '',
+        rent: '',
+        contactNumber: '',
+        deposit: '',
+        roomType: '1BHK',
+        bhkSize: '',
+        availableFrom: '',
+        tenantType: 'Anyone',
+        smokerAllowed: false,
+        drinkerAllowed: false,
+        amenities: []
+      });
+      setImageFiles([]);
+      setImagePreviews([]);
+    } catch (err) {
+      setError(err.message || 'Failed to create post');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,79 +111,227 @@ const AddPostModal = ({ onClose, onAdd }) => {
         
         <div className="p-8 md:p-10">
           <h2 className="text-3xl font-bold text-dark-900 mb-6">Create New Listing</h2>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Image Upload Mock */}
-            <div>
-              <label className="block text-sm font-medium text-dark-700 mb-2">Upload Images (Minimum 4)</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer text-center">
-                <svg className="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <div className="text-sm text-gray-500"><span className="text-primary-600 font-semibold">Click to upload</span> or drag and drop</div>
-                <div className="text-xs text-gray-400 mt-1">PNG, JPG, up to 10MB</div>
-              </div>
-            </div>
+            {/* Image Upload */}
+            <ImageUpload 
+              onImagesChange={(files, previews) => {
+                setImageFiles(files);
+                setImagePreviews(previews);
+              }}
+              maxImages={5}
+              required={imagePreviews.length === 0}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-dark-700 mb-2">Society Name / Keyword</label>
-                <input required type="text" name="society" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. DLF Magnolias"/>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Post Title *</label>
+                <input 
+                  required 
+                  type="text" 
+                  name="title" 
+                  value={formData.title}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" 
+                  placeholder="e.g. Cozy 2BHK in Mumbai"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-dark-700 mb-2">Description *</label>
+                <textarea 
+                  required 
+                  name="description" 
+                  value={formData.description}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all resize-none" 
+                  placeholder="Describe your flat/room..."
+                  rows="4"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-dark-700 mb-2">Location *</label>
+                <input 
+                  required 
+                  type="text" 
+                  name="location" 
+                  value={formData.location}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" 
+                  placeholder="e.g. Mumbai, Bandra"
+                  disabled={loading}
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">City</label>
-                <input required type="text" name="city" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. Pune"/>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Monthly Rent (₹) *</label>
+                <input 
+                  required 
+                  type="number" 
+                  name="rent" 
+                  value={formData.rent}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" 
+                  placeholder="45000"
+                  disabled={loading}
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Locality / Area</label>
-                <input required type="text" name="locality" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="e.g. Yewalewadi"/>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Contact Number</label>
+                <input
+                  type="text"
+                  name="contactNumber"
+                  value={formData.contactNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all"
+                  placeholder="+91 9876543210"
+                  disabled={loading}
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Your Split Rent (₹)</label>
-                <input required type="number" name="rent" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="15000"/>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Deposit (₹)</label>
+                <input 
+                  type="number" 
+                  name="deposit" 
+                  value={formData.deposit}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" 
+                  placeholder="90000"
+                  disabled={loading}
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Total Flat Rent (₹)</label>
-                <input required type="number" name="totalRent" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="45000"/>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Security Deposit (₹)</label>
-                <input required type="number" name="deposit" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="30000"/>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Total Area (sq.ft)</label>
-                <input required type="number" name="area" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" placeholder="1200"/>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-700 mb-2">Preferred Tenant</label>
-                <select name="tenantType" value={formData.tenantType} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all bg-white">
-                  <option value="Anyone">Anyone</option>
-                  <option value="Boys">Boys Only</option>
-                  <option value="Girls">Girls Only</option>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Room Type</label>
+                <select 
+                  name="roomType" 
+                  value={formData.roomType} 
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all bg-white"
+                  disabled={loading}
+                >
+                  <option value="1BHK">1BHK</option>
+                  <option value="2BHK">2BHK</option>
+                  <option value="3BHK">3BHK</option>
+                  <option value="Studio">Studio</option>
                 </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">BHK Size (sq.ft)</label>
+                <input 
+                  type="text" 
+                  name="bhkSize" 
+                  value={formData.bhkSize}
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all" 
+                  placeholder="900"
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Available From *</label>
+                <input 
+                  required
+                  type="date" 
+                  name="availableFrom" 
+                  value={formData.availableFrom}
+                  onChange={handleChange} 
+                  min={today}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all"
+                  disabled={loading}
+                />
               </div>
             </div>
 
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex flex-col md:flex-row gap-6">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input type="checkbox" name="smokerAllowed" onChange={handleChange} className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500" />
-                <span className="text-dark-800 font-medium">Smoker Allowed</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-dark-700 mb-2">Preferred Tenants</label>
+                <select 
+                  name="tenantType" 
+                  value={formData.tenantType} 
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all bg-white"
+                  disabled={loading}
+                >
+                  <option value="Anyone">Anyone</option>
+                  <option value="Girls">Girls</option>
+                  <option value="Boys">Boys</option>
+                </select>
+              </div>
+
+              <label className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 bg-gray-50">
+                <span className="text-sm font-medium text-dark-700">Smoking Allowed</span>
+                <input
+                  type="checkbox"
+                  name="smokerAllowed"
+                  checked={formData.smokerAllowed}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                  disabled={loading}
+                />
               </label>
-              
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input type="checkbox" name="drinkerAllowed" onChange={handleChange} className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500" />
-                <span className="text-dark-800 font-medium">Drinker Allowed</span>
+
+              <label className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 bg-gray-50">
+                <span className="text-sm font-medium text-dark-700">Drinking Allowed</span>
+                <input
+                  type="checkbox"
+                  name="drinkerAllowed"
+                  checked={formData.drinkerAllowed}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                  disabled={loading}
+                />
               </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-dark-700 mb-3">Amenities</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {amenitiesOptions.map(amenity => (
+                  <label key={amenity} className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name="amenities"
+                      value={amenity}
+                      checked={formData.amenities.includes(amenity)}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500" 
+                      disabled={loading}
+                    />
+                    <span className="text-dark-800">{amenity}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
-              <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl font-medium text-gray-500 hover:bg-gray-100 transition-colors">Cancel</button>
-              <button type="submit" className="px-8 py-3 bg-dark-900 text-white font-medium rounded-xl hover:bg-primary-600 hover:shadow-glow transition-all">Publish Listing</button>
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="px-6 py-3 rounded-xl font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="px-8 py-3 bg-dark-900 text-white font-medium rounded-xl hover:bg-primary-600 hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : submitLabel}
+              </button>
             </div>
           </form>
         </div>

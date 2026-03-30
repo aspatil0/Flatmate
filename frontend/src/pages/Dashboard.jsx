@@ -1,92 +1,402 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import ChatPanel from '../components/ChatPanel';
 import PostCard from '../components/PostCard';
 import PostDetailsModal from '../components/PostDetailsModal';
 import AddPostModal from '../components/AddPostModal';
+import { useAuth } from '../context/AuthContext.jsx';
+import { chatAPI, postsAPI, uploadAPI } from '../lib/api.js';
+import { allPosts as getLocalPosts, createPost as createLocalPost, updatePost as updateLocalPost } from '../lib/db.js';
 
 // Images
 import flat1 from '../assets/flat1.png';
 import flat2 from '../assets/flat2.png';
 
-const MOCK_POSTS = [
-  {
-    id: 1, society: 'DLF Magnolias', city: 'Gurugram', locality: 'Sector 42', rent: 22000, totalRent: 66000, deposit: 45000,
-    area: 1400, images: [flat1, flat2, flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Alex K.', auraScore: 2015
-  },
-  {
-    id: 2, society: 'Ireo Skyon', city: 'Gurugram', locality: 'Sector 60', rent: 18000, totalRent: 36000, deposit: 30000,
-    area: 1050, images: [flat2, flat1, flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Sarah M.', auraScore: 1990
-  },
-  {
-    id: 3, society: 'M3M Golf Estate', city: 'Gurugram', locality: 'Sector 65', rent: 25000, totalRent: 75000, deposit: 50000,
-    area: 1800, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rahul V.', auraScore: 2050
-  },
-  {
-    id: 4, society: 'Amanora Park Town', city: 'Pune', locality: 'Hadapsar', rent: 15000, totalRent: 45000, deposit: 40000,
-    area: 1200, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Neha S.', auraScore: 2005
-  },
-  {
-    id: 5, society: 'Godrej Infinity', city: 'Pune', locality: 'Keshav Nagar', rent: 16000, totalRent: 48000, deposit: 35000,
-    area: 1100, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Amit P.', auraScore: 1980
-  },
-  {
-    id: 6, society: 'Blue Ridge', city: 'Pune', locality: 'Hinjewadi', rent: 14000, totalRent: 42000, deposit: 30000,
-    area: 1050, images: [flat2, flat1], smokerAllowed: true, drinkerAllowed: false, tenantType: 'Boys', postedBy: 'Rohan D.', auraScore: 2100
-  },
-  {
-    id: 7, society: 'Kolte Patil Life Republic', city: 'Pune', locality: 'Hinjewadi', rent: 13000, totalRent: 39000, deposit: 25000,
-    area: 950, images: [flat1, flat2], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Girls', postedBy: 'Priya K.', auraScore: 2025
-  },
-  {
-    id: 8, society: 'Pristine Prolife', city: 'Pune', locality: 'Wakad', rent: 17000, totalRent: 51000, deposit: 40000,
-    area: 1250, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Anyone', postedBy: 'Suman T.', auraScore: 1995
-  },
-  {
-    id: 9, society: 'Majestique Rhythm', city: 'Pune', locality: 'Yewalewadi', rent: 11000, totalRent: 33000, deposit: 20000,
-    area: 850, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Karan J.', auraScore: 2040
-  },
-  {
-    id: 10, society: 'Kumar Piccadilly', city: 'Pune', locality: 'Katraj', rent: 12000, totalRent: 36000, deposit: 25000,
-    area: 900, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: false, tenantType: 'Girls', postedBy: 'Aditi M.', auraScore: 2085
-  },
-  {
-    id: 11, society: 'Ganga Ishanya', city: 'Pune', locality: 'Katraj', rent: 16000, totalRent: 48000, deposit: 35000,
-    area: 1150, images: [flat1, flat2], smokerAllowed: true, drinkerAllowed: true, tenantType: 'Anyone', postedBy: 'Siddharth R.', auraScore: 1970
-  },
-  {
-    id: 12, society: 'Lodha Belmondo', city: 'Pune', locality: 'Gahunje', rent: 20000, totalRent: 60000, deposit: 50000,
-    area: 1500, images: [flat2, flat1], smokerAllowed: false, drinkerAllowed: true, tenantType: 'Boys', postedBy: 'Vikram B.', auraScore: 2060
+const getBookingNotificationStorageKey = (userId) => `flatmate_seen_booking_notifications_${userId || 'guest'}`;
+const FLAT_BOOKING_STATUS_EVENT = 'flat-booking-status-updated';
+const getFlatBookingResponseStorageKey = (userRef) => `flatmate_flat_booking_updates_${userRef || 'guest'}`;
+const getFlatResponsePopupSeenKey = (userRef) => `flatmate_seen_flat_response_popups_${userRef || 'guest'}`;
+
+const parseLocation = (location = '') => {
+  const [firstPart = '', ...rest] = location.split(',').map(part => part.trim()).filter(Boolean);
+
+  if (rest.length === 0) {
+    return {
+      locality: firstPart || '',
+      city: firstPart || '',
+    };
   }
-];
+
+  return {
+    locality: rest.join(', '),
+    city: firstPart,
+  };
+};
+
+const normalizePost = (post, fallbackPostedBy = 'User') => {
+  const { city, locality } = parseLocation(post.location || '');
+  const normalizedImages = Array.isArray(post.images) && post.images.length > 0
+    ? post.images
+    : [flat1, flat2];
+
+  return {
+    ...post,
+    id: post.id || post._id,
+    ownerId: post.ownerId || post.owner?._id || post.owner?.id || '',
+    ownerEmail: post.ownerEmail || post.owner?.email || '',
+    images: normalizedImages,
+    society: post.society || post.title || 'Untitled Listing',
+    city: post.city || city || 'Unknown City',
+    locality: post.locality || locality || '',
+    area: post.area || post.bhkSize || 'N/A',
+    postedBy: post.postedBy || post.owner?.name || fallbackPostedBy,
+    contactNumber: post.contactNumber || post.owner?.phone || '',
+    totalRent: post.totalRent || post.rent || 0,
+    deposit: post.deposit || 0,
+    tenantType: post.tenantType || 'Anyone',
+    smokerAllowed: typeof post.smokerAllowed === 'boolean' ? post.smokerAllowed : false,
+    drinkerAllowed: typeof post.drinkerAllowed === 'boolean' ? post.drinkerAllowed : false,
+  };
+};
+
+const dedupePosts = (items) => {
+  const seen = new Set();
+
+  return items.filter((post) => {
+    const key = post.id || post._id;
+
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const getRequestNotificationId = (postId, request) =>
+  `${postId}-${request.tenantEmail || request.tenantId || request.tenantName}-${request.requestedAt}`;
+
+const isMongoId = (value = '') => /^[a-f\d]{24}$/i.test(String(value));
+const LOCAL_POSTS_STORAGE_KEY = 'flatmate_posts';
+const isDataUrl = (value = '') => typeof value === 'string' && value.startsWith('data:');
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('feed'); // 'feed' or 'favorites'
-  const [posts, setPosts] = useState(MOCK_POSTS);
+  const location = useLocation();
+  const { user, token, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('feed');
+  const [posts, setPosts] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // Modals
   const [selectedPost, setSelectedPost] = useState(null);
   const [isAddingPost, setIsAddingPost] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [bookingMessage, setBookingMessage] = useState(null); // { type: 'success'|'error', text: '...' }
+  const [ownerBookingRequests, setOwnerBookingRequests] = useState([]);
+  const [latestOwnerNotification, setLatestOwnerNotification] = useState(null);
+  const [tenantBookingResponses, setTenantBookingResponses] = useState([]);
+  const [latestTenantResponse, setLatestTenantResponse] = useState(null);
+  const [loginSuccessPopup, setLoginSuccessPopup] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [conversationMessages, setConversationMessages] = useState([]);
+  const [chatMessageInput, setChatMessageInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
-  // Aura System state
-  const [pastFlatmates, setPastFlatmates] = useState([
-    { id: 101, name: 'Rahul V.', joined: 'Jan 2025', left: 'Dec 2025', auraScore: 2010, hasRated: false },
-    { id: 102, name: 'Sarah M.', joined: 'Feb 2024', left: 'Jan 2025', auraScore: 1995, hasRated: true },
-    { id: 103, name: 'Amit P.', joined: 'Mar 2023', left: 'Jan 2024', auraScore: 2045, hasRated: false },
-  ]);
-
-  const handleRateFlatmate = (id, rating) => {
-    setPastFlatmates(prev => prev.map(fm => {
-      if(fm.id === id) {
-        // Cumulative aura score update
-        return { ...fm, auraScore: fm.auraScore + rating, hasRated: true };
+  
+  // Fetch posts from backend
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Set a timeout to fetch API
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('API timeout')), 3000)
+        );
+        
+        const response = await Promise.race([postsAPI.getPosts(), timeoutPromise]);
+        // Backend returns { posts: [...], pagination: {...} }
+        let postsArray = response.posts || response;
+        const localPosts = getLocalPosts();
+        
+        // If no posts from backend, use fake data for demonstration
+        if (!postsArray || postsArray.length === 0) {
+          postsArray = [...localPosts, ...fakeFlatsData];
+        } else {
+          postsArray = [...localPosts, ...postsArray];
+        }
+        
+        // Transform backend data to match component expectations
+        const transformedPosts = dedupePosts(postsArray.map(post => normalizePost(post)));
+        setPosts(transformedPosts);
+      } catch (err) {
+        console.log('Using fake data - API error or timeout:', err.message);
+        const localPosts = getLocalPosts();
+        // Always use fake data on error
+        const transformedPosts = dedupePosts([...localPosts, ...fakeFlatsData].map(post => normalizePost(post)));
+        setPosts(transformedPosts);
+      } finally {
+        setLoading(false);
       }
-      return fm;
-    }));
+    };
+
+    fetchPosts();
+  }, []);
+
+  useEffect(() => {
+    if (!token || !user) return undefined;
+
+    const fetchOwnerNotifications = async () => {
+      try {
+        const requests = await postsAPI.getBookingRequests(token);
+        setOwnerBookingRequests(requests);
+
+        const seenNotifications = new Set(
+          JSON.parse(localStorage.getItem(getBookingNotificationStorageKey(user.id || user._id || user.email)) || '[]')
+        );
+
+        const pendingRequests = requests.flatMap((propertyGroup) =>
+          (propertyGroup.requests || [])
+            .filter((request) => request.status === 'pending')
+            .map((request) => ({
+              id: getRequestNotificationId(propertyGroup.postId, request),
+              postTitle: propertyGroup.postTitle,
+              postLocation: propertyGroup.postLocation,
+              ...request,
+            }))
+        );
+
+        const unseenNotification = pendingRequests.find((request) => !seenNotifications.has(request.id));
+
+        if (unseenNotification) {
+          setLatestOwnerNotification(unseenNotification);
+          localStorage.setItem(
+            getBookingNotificationStorageKey(user.id || user._id || user.email),
+            JSON.stringify([...seenNotifications, unseenNotification.id])
+          );
+        }
+      } catch (err) {
+        console.error('Error fetching owner booking notifications:', err);
+      }
+    };
+
+    fetchOwnerNotifications();
+    const intervalId = setInterval(fetchOwnerNotifications, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [token, user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const syncTenantBookingResponses = () => {
+      try {
+        const updates = JSON.parse(
+          localStorage.getItem(getFlatBookingResponseStorageKey(user.id || user._id || user.email)) || '[]'
+        ).sort((a, b) => new Date(b.respondedAt || 0) - new Date(a.respondedAt || 0));
+
+        const seenPopups = new Set(
+          JSON.parse(localStorage.getItem(getFlatResponsePopupSeenKey(user.id || user._id || user.email)) || '[]')
+        );
+
+        setTenantBookingResponses(updates);
+        const nextUnseen = updates.find((update) => !seenPopups.has(update.id)) || null;
+        setLatestTenantResponse(nextUnseen);
+
+        if (nextUnseen) {
+          localStorage.setItem(
+            getFlatResponsePopupSeenKey(user.id || user._id || user.email),
+            JSON.stringify([...seenPopups, nextUnseen.id])
+          );
+        }
+      } catch (responseError) {
+        console.error('Error loading flat booking responses:', responseError);
+      }
+    };
+
+    syncTenantBookingResponses();
+    window.addEventListener('storage', syncTenantBookingResponses);
+    window.addEventListener(FLAT_BOOKING_STATUS_EVENT, syncTenantBookingResponses);
+
+    return () => {
+      window.removeEventListener('storage', syncTenantBookingResponses);
+      window.removeEventListener(FLAT_BOOKING_STATUS_EVENT, syncTenantBookingResponses);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (location.state?.loginSuccess) {
+      setLoginSuccessPopup(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+
+    let isMounted = true;
+
+    const loadConversations = async () => {
+      try {
+        const response = await chatAPI.getConversations(token);
+        const nextConversations = response.conversations || [];
+
+        if (!isMounted) {
+          return;
+        }
+
+        setConversations(nextConversations);
+        setSelectedConversation((currentConversation) => {
+          if (!currentConversation) {
+            return nextConversations[0] || null;
+          }
+
+          return nextConversations.find((item) => item.id === currentConversation.id) || currentConversation;
+        });
+      } catch (chatLoadError) {
+        console.error('Error loading conversations:', chatLoadError);
+      }
+    };
+
+    loadConversations();
+    const intervalId = setInterval(loadConversations, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !user) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const syncLocalPostsToBackend = async () => {
+      const localPosts = getLocalPosts();
+      const pendingLocalPosts = localPosts.filter((post) => !isMongoId(post.id));
+
+      if (pendingLocalPosts.length === 0) {
+        return;
+      }
+
+      const syncedLocalIds = [];
+      const createdPosts = [];
+
+      for (const post of pendingLocalPosts) {
+        try {
+          const response = await postsAPI.createPost(
+            {
+              title: post.title || post.society || 'Untitled Listing',
+              description: post.description || '',
+              location: post.location || [post.city, post.locality].filter(Boolean).join(', '),
+              rent: Number(post.rent || post.totalRent || 0),
+              contactNumber: post.contactNumber || '',
+              deposit: Number(post.deposit || 0),
+              roomType: post.roomType || '1BHK',
+              bhkSize: post.bhkSize || post.area || '',
+              availableFrom: post.availableFrom || new Date().toISOString(),
+              images: Array.isArray(post.images) ? post.images : [],
+              amenities: Array.isArray(post.amenities) ? post.amenities : [],
+              tenantType: post.tenantType || 'Anyone',
+              smokerAllowed: Boolean(post.smokerAllowed),
+              drinkerAllowed: Boolean(post.drinkerAllowed),
+            },
+            token
+          );
+
+          syncedLocalIds.push(post.id);
+          createdPosts.push(normalizePost(response.post || response, user?.name || 'You'));
+        } catch (syncError) {
+          console.error('Error syncing local post to backend:', syncError);
+        }
+      }
+
+      if (!isMounted || syncedLocalIds.length === 0) {
+        return;
+      }
+
+      const remainingLocalPosts = getLocalPosts().filter((post) => !syncedLocalIds.includes(post.id));
+      localStorage.setItem(LOCAL_POSTS_STORAGE_KEY, JSON.stringify(remainingLocalPosts));
+      setPosts((prevPosts) => dedupePosts([
+        ...createdPosts,
+        ...prevPosts.filter((post) => !syncedLocalIds.includes(post.id)),
+      ]));
+      setError(null);
+    };
+
+    syncLocalPostsToBackend();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, user]);
+
+  useEffect(() => {
+    if (!token || !selectedConversation?.id) {
+      setConversationMessages([]);
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadMessages = async () => {
+      try {
+        setIsChatLoading(true);
+        const response = await chatAPI.getMessages(selectedConversation.id, token);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setConversationMessages(response.messages || []);
+      } catch (messageError) {
+        console.error('Error loading chat messages:', messageError);
+      } finally {
+        if (isMounted) {
+          setIsChatLoading(false);
+        }
+      }
+    };
+
+    loadMessages();
+    const intervalId = setInterval(loadMessages, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedConversation?.id, token]);
+
+  const isPostOwner = (post) => {
+    const userRefs = [user?.id, user?._id, user?.email, user?.name].filter(Boolean);
+    const postRefs = [post.ownerId, post.ownerEmail, post.postedBy, post.owner?.email, post.owner?.name].filter(Boolean);
+    return postRefs.some(ref => userRefs.includes(ref));
+  };
+
+  const canChatForPost = (post) => {
+    if (!token || !post || isPostOwner(post)) {
+      return false;
+    }
+
+    return isMongoId(post.id) && Boolean(post.ownerId || post.ownerEmail || post.owner?._id || post.owner?.email);
   };
 
   const filteredPosts = posts.filter(post => {
+    // If search query is empty, show all posts
+    if (!searchQuery || searchQuery.trim() === '') {
+      return true;
+    }
+    
     const query = searchQuery.toLowerCase();
     const cityMatch = post.city ? post.city.toLowerCase().includes(query) : false;
     const localityMatch = post.locality ? post.locality.toLowerCase().includes(query) : false;
@@ -94,19 +404,313 @@ const Dashboard = () => {
     return cityMatch || localityMatch || societyMatch;
   });
 
-  const handleLogout = () => navigate('/');
+  const myFlatPosts = filteredPosts.filter(post => isPostOwner(post));
 
-  const handleAddPost = (newPostData) => {
-    // mock add functionality
-    const newPost = {
-      id: posts.length + 1,
-      ...newPostData,
-      images: [flat1, flat2], // fallback mock images
-      postedBy: 'You',
-      auraScore: 2000
+  const favoritePosts = favorites
+    .map(favoriteId => posts.find(post => post.id === favoriteId))
+    .filter(Boolean);
+
+  const allOwnerNotifications = ownerBookingRequests.flatMap((propertyGroup) =>
+    (propertyGroup.requests || [])
+      .map((request, index) => ({
+        id: getRequestNotificationId(propertyGroup.postId, request),
+        postId: propertyGroup.postId,
+        bookingRequestIndex: index,
+        postTitle: propertyGroup.postTitle,
+        postLocation: propertyGroup.postLocation,
+        ...request,
+      }))
+  ).sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+
+  const pendingOwnerNotifications = allOwnerNotifications.filter((request) => request.status === 'pending');
+  const unreadChatCount = conversations.reduce((count, conversation) => count + (conversation.unreadCount || 0), 0);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const handleToggleFavorite = (post) => {
+    setFavorites(prevFavorites => (
+      prevFavorites.includes(post.id)
+        ? prevFavorites.filter(id => id !== post.id)
+        : [post.id, ...prevFavorites]
+    ));
+  };
+
+  const prepareBackendPostPayload = async (postData) => {
+    const {
+      imageFiles = [],
+      images = [],
+      ...restPostData
+    } = postData;
+
+    const existingImageUrls = Array.isArray(images)
+      ? images.filter((image) => typeof image === 'string' && !isDataUrl(image))
+      : [];
+
+    if (!imageFiles.length) {
+      return {
+        ...restPostData,
+        images: existingImageUrls,
+      };
+    }
+
+    const uploadedImages = await Promise.all(
+      imageFiles.map(async (file) => {
+        const response = await uploadAPI.uploadImage(file, token);
+        return response.imageUrl;
+      })
+    );
+
+    return {
+      ...restPostData,
+      images: [...existingImageUrls, ...uploadedImages],
     };
-    setPosts([newPost, ...posts]);
-    setIsAddingPost(false);
+  };
+
+  const handleAddPost = async (newPostData) => {
+    if (editingPost) {
+      try {
+        setError(null);
+        const backendPayload = await prepareBackendPostPayload(newPostData);
+        const response = await postsAPI.updatePost(editingPost.id, backendPayload, token);
+        const updatedPost = normalizePost(response.post || response, user?.name || 'You');
+        setPosts(prevPosts => prevPosts.map(post => post.id === editingPost.id ? updatedPost : post));
+        setEditingPost(null);
+        setIsAddingPost(false);
+        return;
+      } catch (err) {
+        const localUpdatedPost = {
+          ...editingPost,
+          ...newPostData,
+          id: editingPost.id,
+          postedBy: editingPost.postedBy || user?.name || 'You',
+        };
+        updateLocalPost(localUpdatedPost);
+        setPosts(prevPosts => prevPosts.map(post => post.id === editingPost.id ? normalizePost(localUpdatedPost, user?.name || 'You') : post));
+        setEditingPost(null);
+        setIsAddingPost(false);
+        setError('Backend is not reachable right now. Your listing changes were saved locally.');
+        console.error('Error updating post:', err);
+        return;
+      }
+    }
+
+    try {
+      setError(null);
+      const backendPayload = await prepareBackendPostPayload(newPostData);
+      // Send to backend API
+      const response = await postsAPI.createPost(backendPayload, token);
+      const createdPost = response.post || response;
+      // Transform response to match component expectations
+      const transformedPost = normalizePost(createdPost, user?.name || 'You');
+      setPosts(prevPosts => [transformedPost, ...prevPosts]);
+      setIsAddingPost(false);
+    } catch (err) {
+      const localPost = {
+        ...newPostData,
+        id: `local-${Date.now()}`,
+        postedBy: user?.name || 'You',
+      };
+      createLocalPost(localPost);
+      const transformedPost = normalizePost(localPost, user?.name || 'You');
+      setPosts(prevPosts => [transformedPost, ...prevPosts]);
+      setIsAddingPost(false);
+      const errorText = String(err?.message || '').toLowerCase();
+      const isNetworkError =
+        errorText.includes('failed to fetch') ||
+        errorText.includes('networkerror') ||
+        errorText.includes('load failed') ||
+        errorText.includes('timeout');
+
+      setError(
+        isNetworkError
+          ? 'Backend is not reachable right now. Your listing was saved locally and is shown in the Flats section.'
+          : `Post could not be saved to backend: ${err?.message || 'Unknown error'}. Your listing was saved locally instead.`
+      );
+      console.error('Error creating post:', err);
+    }
+  };
+
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    setIsAddingPost(true);
+  };
+
+  const handleDeletePost = async (post) => {
+    const shouldDelete = window.confirm(`Delete "${post.society}"?`);
+    if (!shouldDelete) return;
+
+    try {
+      await postsAPI.deletePost(post.id, token);
+    } catch (err) {
+      console.error('Error deleting post from backend:', err);
+    }
+
+    const localPosts = getLocalPosts().filter(item => item.id !== post.id);
+    localStorage.setItem('flatmate_posts', JSON.stringify(localPosts));
+    setPosts(prevPosts => prevPosts.filter(item => item.id !== post.id));
+    setFavorites(prevFavorites => prevFavorites.filter(id => id !== post.id));
+  };
+
+  const handleBook = async (post) => {
+    try {
+      setBookingMessage(null);
+      await postsAPI.createBookingRequest(post.id, token);
+      setBookingMessage({
+        type: 'success',
+        text: `Booking request sent for "${post.title}" successfully!`
+      });
+      setTimeout(() => setBookingMessage(null), 3000);
+    } catch (err) {
+      setBookingMessage({
+        type: 'error',
+        text: err.message || 'Failed to send booking request'
+      });
+      console.error('Error booking:', err);
+    }
+  };
+
+  const handleOpenConversation = async ({ postId, participantId = null, sourcePost = null }) => {
+    if (!token) {
+      setBookingMessage({
+        type: 'error',
+        text: 'Please log in before starting a chat.',
+      });
+      setTimeout(() => setBookingMessage(null), 3000);
+      return;
+    }
+
+    if (sourcePost && !canChatForPost(sourcePost)) {
+      setBookingMessage({
+        type: 'error',
+        text: 'Chat is available only for listings saved on the backend with a real owner account.',
+      });
+      setTimeout(() => setBookingMessage(null), 4000);
+      return;
+    }
+
+    try {
+      const response = await chatAPI.startConversation(
+        participantId ? { postId, participantId } : { postId },
+        token
+      );
+
+      const nextConversation = response.conversation;
+      setActiveTab('chats');
+      setSelectedConversation(nextConversation);
+      setConversations((prevConversations) => {
+        const remaining = prevConversations.filter((item) => item.id !== nextConversation.id);
+        return [nextConversation, ...remaining];
+      });
+
+      const messageResponse = await chatAPI.getMessages(nextConversation.id, token);
+      setConversationMessages(messageResponse.messages || []);
+      setChatMessageInput('');
+    } catch (chatStartError) {
+      setBookingMessage({
+        type: 'error',
+        text: chatStartError.message || 'Unable to open chat right now',
+      });
+      setTimeout(() => setBookingMessage(null), 3000);
+    }
+  };
+
+  const handleSendMessage = async (event) => {
+    event.preventDefault();
+
+    if (!selectedConversation?.id || !chatMessageInput.trim()) {
+      return;
+    }
+
+    const trimmedMessage = chatMessageInput.trim();
+
+    try {
+      const response = await chatAPI.sendMessage(selectedConversation.id, trimmedMessage, token);
+
+      setConversationMessages((prevMessages) => [...prevMessages, response.chatMessage]);
+      setConversations((prevConversations) => {
+        const updated = response.conversation;
+        const remaining = prevConversations.filter((item) => item.id !== updated.id);
+        return [updated, ...remaining];
+      });
+      setSelectedConversation(response.conversation);
+      setChatMessageInput('');
+    } catch (sendError) {
+      setBookingMessage({
+        type: 'error',
+        text: sendError.message || 'Unable to send message',
+      });
+      setTimeout(() => setBookingMessage(null), 3000);
+    }
+  };
+
+  const handleOwnerBookingResponse = async (notification, status) => {
+    try {
+      await postsAPI.respondToBookingRequest(
+        notification.postId,
+        notification.bookingRequestIndex,
+        status,
+        token
+      );
+
+      setOwnerBookingRequests((prevRequests) =>
+        prevRequests.map((propertyGroup) => {
+          if (propertyGroup.postId !== notification.postId) return propertyGroup;
+
+          return {
+            ...propertyGroup,
+            requests: propertyGroup.requests.map((request, index) =>
+              index === notification.bookingRequestIndex
+                ? { ...request, status }
+                : request
+            ),
+          };
+        })
+      );
+
+      if (latestOwnerNotification?.id === notification.id) {
+        setLatestOwnerNotification(null);
+      }
+
+      if (notification.tenantEmail || notification.tenantId || notification.tenantName) {
+        const recipientKey = getFlatBookingResponseStorageKey(
+          notification.tenantId || notification.tenantEmail || notification.tenantName
+        );
+        const existingUpdates = JSON.parse(localStorage.getItem(recipientKey) || '[]');
+        const responseUpdate = {
+          id: `${notification.id}-${status}`,
+          postId: notification.postId,
+          postTitle: notification.postTitle,
+          postLocation: notification.postLocation,
+          status,
+          respondedAt: new Date().toISOString(),
+          ownerName: user?.name || 'Owner',
+        };
+
+        localStorage.setItem(
+          recipientKey,
+          JSON.stringify([
+            responseUpdate,
+            ...existingUpdates.filter((item) => item.id !== responseUpdate.id),
+          ])
+        );
+        window.dispatchEvent(new Event(FLAT_BOOKING_STATUS_EVENT));
+      }
+
+      setBookingMessage({
+        type: 'success',
+        text: `Booking request ${status} for "${notification.postTitle}".`
+      });
+      setTimeout(() => setBookingMessage(null), 3000);
+    } catch (err) {
+      setBookingMessage({
+        type: 'error',
+        text: err.message || `Failed to ${status} booking request`
+      });
+      console.error(`Error trying to ${status} booking request:`, err);
+    }
   };
 
   return (
@@ -122,26 +726,36 @@ const Dashboard = () => {
         {/* User Profile Summary */}
         <div className="p-6 border-b border-gray-100 flex items-center space-x-4">
           <div className="w-14 h-14 bg-gradient-to-tr from-primary-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md border-2 border-white">
-            AD
+            {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()}
           </div>
           <div className="overflow-hidden">
-            <h3 className="font-bold text-dark-900 truncate">Aditya Doe</h3>
-            <p className="text-xs text-gray-500 truncate mb-1">User ID: #FM-8924</p>
-            <div className="flex items-center text-xs font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-md inline-flex border border-amber-100">
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-              Aura: 2000
-            </div>
+            <h3 className="font-bold text-dark-900 truncate">{user?.name || 'User'}</h3>
+            <p className="text-xs text-gray-500 truncate mb-1">Email: {user?.email || 'N/A'}</p>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+          <button
+            onClick={() => navigate('/')}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path></svg>
+            <span>Home</span>
+          </button>
           <button 
             onClick={() => setActiveTab('feed')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'feed' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-            <span>Flat Feed</span>
+            <span>Flats </span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('my-flats')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'my-flats' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A3 3 0 016 17h12a3 3 0 01.879.804M9 12h6m-7 8h8a2 2 0 002-2V8.414a2 2 0 00-.586-1.414l-2.414-2.414A2 2 0 0013.586 4H8a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <span>My Flats</span>
           </button>
           <button 
             onClick={() => setActiveTab('favorites')}
@@ -151,13 +765,33 @@ const Dashboard = () => {
             <span>My Favorites</span>
           </button>
           <button 
-            onClick={() => setActiveTab('flatmates')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'flatmates' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+            onClick={() => setActiveTab('chats')}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${activeTab === 'chats' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            <span>Past Flatmates</span>
+            <span className="flex items-center space-x-3">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4v-4z"></path></svg>
+              <span>Chats</span>
+            </span>
+            {unreadChatCount > 0 && (
+              <span className="min-w-6 h-6 px-2 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center">
+                {unreadChatCount}
+              </span>
+            )}
           </button>
-
+          <button 
+            onClick={() => setActiveTab('notifications')}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${activeTab === 'notifications' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <span className="flex items-center space-x-3">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+              <span>Notifications</span>
+            </span>
+            {pendingOwnerNotifications.length > 0 && (
+              <span className="min-w-6 h-6 px-2 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
+                {pendingOwnerNotifications.length}
+              </span>
+            )}
+          </button>
           <div className="pt-8 pb-2">
             <button 
               onClick={() => setIsAddingPost(true)}
@@ -180,16 +814,38 @@ const Dashboard = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/50 p-6 sm:p-10 relative">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            {error}
+          </div>
+        )}
+
         <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h1 className="text-3xl font-bold text-dark-900 mb-2">
-              {activeTab === 'feed' ? 'Discover Flats' : activeTab === 'favorites' ? 'Your Favorites' : 'Aura Network'}
+              {activeTab === 'feed'
+                ? 'Find Your Flats'
+                : activeTab === 'my-flats'
+                  ? 'My Flats'
+                : activeTab === 'chats'
+                  ? 'Real-Time Chat'
+                : activeTab === 'favorites'
+                  ? 'Your Favorites'
+                  : 'Booking Notifications'}
             </h1>
             <p className="text-gray-500">
-              {activeTab === 'feed' ? 'Showing the latest premium flat listings available.' : activeTab === 'favorites' ? 'Flats you have marked as interested.' : 'Rate past flatmates to build their Aura Score and trustworthiness.'}
+              {activeTab === 'feed'
+                ? 'Showing the latest premium flat listings available.'
+                : activeTab === 'my-flats'
+                  ? 'Listings you created will appear here.'
+                : activeTab === 'chats'
+                  ? 'Message owners and tenants live from your flat conversations.'
+                : activeTab === 'favorites'
+                  ? 'Flats you have marked as interested.'
+                  : 'Review and respond to booking requests for your posts.'}
             </p>
           </div>
-          {activeTab === 'feed' && (
+          {(activeTab === 'feed' || activeTab === 'my-flats') && (
             <div className="w-full md:w-auto relative">
               <input 
                 type="text" 
@@ -203,14 +859,30 @@ const Dashboard = () => {
           )}
         </header>
 
-        {activeTab === 'feed' ? (
+        {loading && (
+          <div className="flex justify-center items-center h-96">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-primary-200 border-t-primary-600 animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading flats...</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && activeTab === 'feed' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredPosts.length > 0 ? (
               filteredPosts.map(post => (
                 <PostCard 
                   key={post.id} 
                   post={post} 
-                  onInterested={(p) => setSelectedPost(p)} 
+                  onBook={handleBook}
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={favorites.includes(post.id)}
+                  onInterested={(p) => setSelectedPost(p)}
+                  canManage={isPostOwner(post)}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  onChat={canChatForPost(post) ? (p) => handleOpenConversation({ postId: p.id, sourcePost: p }) : null}
                 />
               ))
             ) : (
@@ -220,52 +892,218 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-        ) : activeTab === 'favorites' ? (
-          <div className="flex flex-col items-center justify-center p-20 text-center">
-            <div className="w-24 h-24 bg-red-50 text-red-300 rounded-full flex items-center justify-center mb-6">
-               <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
+        ) : !loading && activeTab === 'my-flats' ? (
+          myFlatPosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {myFlatPosts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onBook={handleBook}
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={favorites.includes(post.id)}
+                  onInterested={(p) => setSelectedPost(p)}
+                  canManage={isPostOwner(post)}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                />
+              ))}
             </div>
-            <h3 className="text-2xl font-bold text-dark-900 mb-2">No Favorites Yet</h3>
-            <p className="text-gray-500 max-w-sm">When you express interest in flats, they will appear here so you can easily find them later.</p>
-            <button onClick={() => setActiveTab('feed')} className="mt-8 px-6 py-2 border-2 border-primary-600 text-primary-600 rounded-xl hover:bg-primary-50 transition-colors">Return to Feed</button>
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto space-y-4">
-            {pastFlatmates.map(fm => (
-              <div key={fm.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h3 className="text-xl font-bold text-dark-900">{fm.name}</h3>
-                  <p className="text-sm text-gray-500">Shared flat from {fm.joined} to {fm.left}</p>
-                  <div className="mt-3 flex items-center text-sm font-bold text-amber-500 bg-amber-50 inline-flex px-3 py-1 rounded-lg border border-amber-100">
-                    <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                    Aura Score: {fm.auraScore}
+          ) : (
+            <div className="flex flex-col items-center justify-center p-20 text-center">
+              <div className="w-24 h-24 bg-primary-50 text-primary-300 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2m4-2a8 8 0 11-16 0 8 8 0 0116 0z"></path></svg>
+              </div>
+              <h3 className="text-2xl font-bold text-dark-900 mb-2">No Flats Created Yet</h3>
+              <p className="text-gray-500 max-w-sm">
+                {searchQuery.trim()
+                  ? 'No created flats matched your search. Try adjusting your keywords.'
+                  : 'Your posted flat listings will appear here after you create them.'}
+              </p>
+              <button onClick={() => setIsAddingPost(true)} className="mt-8 px-6 py-2 border-2 border-primary-600 text-primary-600 rounded-xl hover:bg-primary-50 transition-colors">Add Your First Flat</button>
+            </div>
+          )
+        ) : !loading && activeTab === 'chats' ? (
+          <ChatPanel
+            conversations={conversations}
+            selectedConversation={selectedConversation}
+            messages={conversationMessages}
+            isLoadingMessages={isChatLoading}
+            messageInput={chatMessageInput}
+            onMessageInputChange={setChatMessageInput}
+            onSelectConversation={setSelectedConversation}
+            onSendMessage={handleSendMessage}
+          />
+        ) : !loading && activeTab === 'favorites' ? (
+          favoritePosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {favoritePosts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onBook={handleBook}
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={favorites.includes(post.id)}
+                  onInterested={(p) => setSelectedPost(p)}
+                  canManage={isPostOwner(post)}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  onChat={canChatForPost(post) ? (p) => handleOpenConversation({ postId: p.id, sourcePost: p }) : null}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-20 text-center">
+              <div className="w-24 h-24 bg-red-50 text-red-300 rounded-full flex items-center justify-center mb-6">
+                 <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
+              </div>
+              <h3 className="text-2xl font-bold text-dark-900 mb-2">No Favorites Yet</h3>
+              <p className="text-gray-500 max-w-sm">Click the heart on any flat card and it will appear here.</p>
+              <button onClick={() => setActiveTab('feed')} className="mt-8 px-6 py-2 border-2 border-primary-600 text-primary-600 rounded-xl hover:bg-primary-50 transition-colors">Return to Feed</button>
+            </div>
+          )
+        ) : !loading && activeTab === 'notifications' ? (
+          (tenantBookingResponses.length > 0 || allOwnerNotifications.length > 0) ? (
+            <div className="max-w-4xl mx-auto space-y-4">
+              {tenantBookingResponses.length > 0 && tenantBookingResponses.map((update) => (
+                <div
+                  key={update.id}
+                  className={`bg-white p-6 rounded-2xl shadow-sm border ${
+                    update.status === 'accepted'
+                      ? 'border-green-200'
+                      : 'border-red-200'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div>
+                      <div
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border mb-3 ${
+                          update.status === 'accepted'
+                            ? 'bg-green-50 text-green-700 border-green-100'
+                            : 'bg-red-50 text-red-700 border-red-100'
+                        }`}
+                      >
+                        {update.status === 'accepted' ? 'Your Request Was Accepted' : 'Your Request Was Rejected'}
+                      </div>
+                      <p className="text-lg font-semibold text-dark-900">
+                        {update.ownerName} responded to your request for <span className="text-primary-700">{update.postTitle}</span>
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">{update.postLocation}</p>
+                      <p className="text-sm text-gray-500">{new Date(update.respondedAt).toLocaleString()}</p>
+                    </div>
+                    <div
+                      className={`px-4 py-2.5 rounded-xl font-semibold ${
+                        update.status === 'accepted'
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleOpenConversation({ postId: update.postId })}
+                        className="text-left"
+                      >
+                        {update.status === 'accepted' ? 'Accepted • Open Chat' : 'Rejected • Open Chat'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                {!fm.hasRated ? (
-                  <div className="flex items-center gap-3">
-                    <select id={`rate-${fm.id}`} className="px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-primary-500 bg-gray-50 font-medium">
-                      {Array.from({length: 21}, (_, i) => i - 10).map(num => <option key={num} value={num}>{num > 0 ? `+${num}` : num}</option>)}
-                    </select>
-                    <button 
-                      onClick={() => {
-                        const rating = parseInt(document.getElementById(`rate-${fm.id}`).value);
-                        handleRateFlatmate(fm.id, rating);
-                      }}
-                      className="px-5 py-3 bg-primary-50 text-primary-600 font-bold rounded-xl hover:bg-primary-600 hover:text-white transition-all shadow-sm"
-                    >
-                      Rate Flatmate
-                    </button>
+              ))}
+              {allOwnerNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`bg-white p-6 rounded-2xl shadow-sm border ${
+                    notification.status === 'accepted'
+                      ? 'border-green-200'
+                      : notification.status === 'rejected'
+                        ? 'border-red-200'
+                        : 'border-amber-100'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div>
+                      <div
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border mb-3 ${
+                          notification.status === 'accepted'
+                            ? 'bg-green-50 text-green-700 border-green-100'
+                            : notification.status === 'rejected'
+                              ? 'bg-red-50 text-red-700 border-red-100'
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}
+                      >
+                        {notification.status === 'accepted'
+                          ? 'Accepted'
+                          : notification.status === 'rejected'
+                            ? 'Rejected'
+                            : 'Pending Booking Request'}
+                      </div>
+                      <p className="text-lg font-semibold text-dark-900">
+                        {notification.tenantName} requested <span className="text-primary-700">{notification.postTitle}</span>
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">{notification.postLocation}</p>
+                      <p className="text-sm text-gray-500">{new Date(notification.requestedAt).toLocaleString()}</p>
+                      {notification.tenantEmail && (
+                        <p className="text-sm text-gray-600 mt-2">Email: {notification.tenantEmail}</p>
+                      )}
+                      {notification.tenantPhone && (
+                        <p className="text-sm text-gray-600">Phone: {notification.tenantPhone}</p>
+                      )}
+                    </div>
+                    {notification.status === 'pending' ? (
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenConversation({ postId: notification.postId, participantId: notification.tenantId })}
+                          className="px-4 py-2.5 bg-white text-primary-600 font-semibold rounded-xl border border-primary-200 hover:bg-primary-50 transition-colors"
+                        >
+                          Open Chat
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOwnerBookingResponse(notification, 'accepted')}
+                          className="px-4 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOwnerBookingResponse(notification, 'rejected')}
+                          className="px-4 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className={`px-4 py-2.5 rounded-xl font-semibold ${
+                          notification.status === 'accepted'
+                            ? 'bg-green-50 text-green-700 border border-green-200'
+                            : 'bg-red-50 text-red-700 border border-red-200'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleOpenConversation({ postId: notification.postId, participantId: notification.tenantId })}
+                          className="text-left"
+                        >
+                          {notification.status === 'accepted' ? 'Accepted • Open Chat' : 'Rejected • Open Chat'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="px-5 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                    Feedback Recorded
-                  </div>
-                )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-20 text-center">
+              <div className="w-24 h-24 bg-amber-50 text-amber-300 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               </div>
-            ))}
-          </div>
-        )}
+              <h3 className="text-2xl font-bold text-dark-900 mb-2">No Booking Notifications</h3>
+              <p className="text-gray-500 max-w-sm">Booking requests for your posts and responses to your own requests will appear here.</p>
+            </div>
+          )
+        ) : null}
       </main>
 
       {/* Modals */}
@@ -278,9 +1116,147 @@ const Dashboard = () => {
 
       {isAddingPost && (
         <AddPostModal 
-          onClose={() => setIsAddingPost(false)} 
-          onAdd={handleAddPost} 
+          onClose={() => {
+            setIsAddingPost(false);
+            setEditingPost(null);
+          }}
+          onAdd={handleAddPost}
+          initialData={editingPost}
+          submitLabel={editingPost ? 'Save Changes' : 'Publish Listing'}
         />
+      )}
+
+      {latestOwnerNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full">
+          <div className="bg-white border border-amber-200 shadow-2xl rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-500 mb-1">New Booking</p>
+                <h3 className="text-lg font-bold text-dark-900">Someone requested your post</h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  <span className="font-semibold">{latestOwnerNotification.tenantName}</span> requested
+                  {' '}
+                  <span className="font-semibold">{latestOwnerNotification.postTitle}</span>.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  {latestOwnerNotification.postLocation} • {new Date(latestOwnerNotification.requestedAt).toLocaleString()}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOwnerBookingResponse(latestOwnerNotification, 'accepted')}
+                    className="flex-1 bg-green-600 text-white font-semibold py-2.5 rounded-xl hover:bg-green-700 transition-colors"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOwnerBookingResponse(latestOwnerNotification, 'rejected')}
+                    className="flex-1 bg-red-600 text-white font-semibold py-2.5 rounded-xl hover:bg-red-700 transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLatestOwnerNotification(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {latestTenantResponse && activeTab !== 'notifications' && (
+        <div className="fixed bottom-6 left-6 z-50 max-w-sm w-full">
+          <div className={`border shadow-2xl rounded-2xl p-5 bg-white ${
+            latestTenantResponse.status === 'accepted' ? 'border-green-200' : 'border-red-200'
+          }`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                  latestTenantResponse.status === 'accepted' ? 'text-green-600' : 'text-red-500'
+                }`}>
+                  Booking Update
+                </p>
+                <h3 className="text-lg font-bold text-dark-900">
+                  {latestTenantResponse.status === 'accepted' ? 'Request Accepted' : 'Request Rejected'}
+                </h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  {latestTenantResponse.ownerName} responded to your request for{' '}
+                  <span className="font-semibold">{latestTenantResponse.postTitle}</span>.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  {latestTenantResponse.postLocation} • {new Date(latestTenantResponse.respondedAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLatestTenantResponse(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loginSuccessPopup && (
+        <div className="fixed top-24 right-6 z-50 max-w-sm w-full">
+          <div className="bg-white border border-green-200 shadow-2xl rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-green-600 mb-1">Welcome Back</p>
+                <h3 className="text-lg font-bold text-dark-900">Login successful</h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  You are now signed in as <span className="font-semibold">{user?.name || 'User'}</span>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoginSuccessPopup(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bookingMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full">
+          <div className={`border shadow-2xl rounded-2xl p-5 bg-white ${
+            bookingMessage.type === 'success' ? 'border-green-200' : 'border-red-200'
+          }`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                  bookingMessage.type === 'success' ? 'text-green-600' : 'text-red-500'
+                }`}>
+                  {bookingMessage.type === 'success' ? 'Booking Sent' : 'Booking Error'}
+                </p>
+                <h3 className="text-lg font-bold text-dark-900">
+                  {bookingMessage.type === 'success' ? 'Request updated' : 'Something went wrong'}
+                </h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  {bookingMessage.text}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBookingMessage(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
