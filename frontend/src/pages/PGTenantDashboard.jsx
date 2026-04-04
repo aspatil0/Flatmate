@@ -1,63 +1,309 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import ChatPanel from '../components/ChatPanel.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import {
+  getPGConversationMessages,
+  getUserChatRef,
+  loadPGChatSummaries,
+  openPGConversation,
+  PG_CHATS_UPDATED_EVENT,
+  sendPGConversationMessage,
+} from '../lib/pgChat.js';
 
 import flat1 from '../assets/flat1.png';
 import flat2 from '../assets/flat2.png';
 
-const MOCK_PROPERTIES = [
-  {
-    id: 1,
-    name: 'Aditya Residency PG',
-    city: 'Pune',
-    locality: 'Katraj',
-    rent: 6500,
-    ownerPhone: '+91 8669792979',
-    images: [flat1, flat2],
-    flats: Array.from({ length: 40 }, (_, f_idx) => ({
-      id: `f-${f_idx + 1}`,
-      flatNumber: 101 + f_idx,
-      beds: [
-        { id: `b-${f_idx + 1}-1`, isBooked: Math.random() > 0.8 },
-        { id: `b-${f_idx + 1}-2`, isBooked: Math.random() > 0.8 },
-        { id: `b-${f_idx + 1}-3`, isBooked: Math.random() > 0.8 },
-      ]
-    }))
-  },
-  {
-    id: 2,
-    name: 'Sunrise PG for Boys',
-    city: 'Pune',
-    locality: 'Wakad',
-    rent: 5500,
-    ownerPhone: '+91 9876543210',
-    images: [flat2, flat1],
-    flats: Array.from({ length: 10 }, (_, f_idx) => ({
-      id: `f2-${f_idx + 1}`,
-      flatNumber: 201 + f_idx,
-      beds: [
-        { id: `b2-${f_idx + 1}-1`, isBooked: Math.random() > 0.5 },
-        { id: `b2-${f_idx + 1}-2`, isBooked: Math.random() > 0.5 },
-      ]
-    }))
+const OWNER_PROPERTIES_PREFIX = 'flatmate_pg_owner_properties_';
+const PG_PROPERTIES_UPDATED_EVENT = 'pg-properties-updated';
+const PG_BOOKING_NOTIFICATIONS_EVENT = 'pg-booking-notifications-updated';
+const getPGOwnerNotificationsKey = (ownerRef) => `flatmate_pg_booking_notifications_${ownerRef || 'unknown'}`;
+const PG_TENANT_RESPONSE_PREFIX = 'flatmate_pg_tenant_booking_updates_';
+const getPGTenantResponseNotificationsKey = (tenantRef) => `flatmate_pg_tenant_booking_updates_${tenantRef || 'guest'}`;
+const getPGTenantPopupSeenKey = (tenantRef) => `flatmate_seen_pg_tenant_popups_${tenantRef || 'guest'}`;
+
+const normalizeTenantProperty = (property) => ({
+  ...property,
+  id: property.id || Date.now(),
+  name: property.name || 'Untitled Property',
+  city: property.city || '',
+  locality: property.locality || '',
+  rent: Number(property.rent) || 0,
+  ownerPhone: property.ownerPhone || 'Not available',
+  ownerName: property.ownerName || 'Owner',
+  images: Array.isArray(property.images) && property.images.length > 0 ? property.images : [flat1, flat2],
+  flats: Array.isArray(property.flats) ? property.flats.map((flat, flatIndex) => ({
+    ...flat,
+    id: flat.id || `flat-${property.id || Date.now()}-${flatIndex}`,
+    flatNumber: flat.flatNumber || 101 + flatIndex,
+    beds: Array.isArray(flat.beds) && flat.beds.length > 0
+      ? flat.beds.map((bed, bedIndex) => ({
+          ...bed,
+          id: bed.id || `bed-${property.id || Date.now()}-${flatIndex}-${bedIndex}`,
+          isBooked: Boolean(bed.isBooked),
+        }))
+      : [],
+  })) : [],
+});
+
+const loadOwnerCreatedProperties = () => {
+  try {
+    const properties = [];
+
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+
+      if (!key || !key.startsWith(OWNER_PROPERTIES_PREFIX)) continue;
+
+      const rawValue = localStorage.getItem(key) || '[]';
+      const stored = JSON.parse(rawValue);
+
+      if (Array.isArray(stored)) {
+        const normalizedProperties = stored.map(normalizeTenantProperty);
+        localStorage.setItem(key, JSON.stringify(normalizedProperties));
+        properties.push(...normalizedProperties);
+      }
+    }
+
+    return properties;
+  } catch (error) {
+    console.error('Error loading PG owner properties:', error);
+    return [];
   }
-];
+};
+
+const loadTenantBookingResponses = (user) => {
+  if (!user) return [];
+
+  try {
+    const candidateRefs = [
+      user.id,
+      user._id,
+      user.email,
+      user.name,
+    ].filter(Boolean);
+
+    const updates = [];
+
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(PG_TENANT_RESPONSE_PREFIX)) continue;
+
+      const belongsToUser = candidateRefs.some((ref) => key === getPGTenantResponseNotificationsKey(ref));
+      if (!belongsToUser) continue;
+
+      const stored = JSON.parse(localStorage.getItem(key) || '[]');
+      if (Array.isArray(stored)) {
+        updates.push(...stored);
+      }
+    }
+
+    return updates.sort((a, b) => new Date(b.respondedAt || 0) - new Date(a.respondedAt || 0));
+  } catch (error) {
+    console.error('Error loading PG tenant booking updates:', error);
+    return [];
+  }
+};
 
 const PGTenantDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [activeView, setActiveView] = useState('properties');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [bookingRequest, setBookingRequest] = useState(null); // { flat, bed, index }
   const [bookSuccess, setBookSuccess] = useState(null); // bedId of successful mock booking
+  const [properties, setProperties] = useState([]);
+  const [tenantBookingResponses, setTenantBookingResponses] = useState([]);
+  const [latestTenantBookingResponse, setLatestTenantBookingResponse] = useState(null);
+  const [chatConversations, setChatConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [conversationMessages, setConversationMessages] = useState([]);
+  const [chatMessageInput, setChatMessageInput] = useState('');
 
-  const filteredProperties = MOCK_PROPERTIES.filter(p => {
-    const q = searchQuery.toLowerCase();
-    return p.name.toLowerCase().includes(q) || 
-           p.city.toLowerCase().includes(q) || 
-           p.locality.toLowerCase().includes(q);
+  useEffect(() => {
+    const syncProperties = () => {
+      const ownerProperties = loadOwnerCreatedProperties();
+      setProperties(ownerProperties);
+    };
+
+    syncProperties();
+    window.addEventListener('storage', syncProperties);
+    window.addEventListener(PG_PROPERTIES_UPDATED_EVENT, syncProperties);
+
+    return () => {
+      window.removeEventListener('storage', syncProperties);
+      window.removeEventListener(PG_PROPERTIES_UPDATED_EVENT, syncProperties);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const syncTenantResponses = () => {
+      try {
+        const updates = loadTenantBookingResponses(user);
+        const popupSeenRef = user.id || user._id || user.email || user.name;
+        const seenPopups = new Set(
+          JSON.parse(localStorage.getItem(getPGTenantPopupSeenKey(popupSeenRef)) || '[]')
+        );
+
+        setTenantBookingResponses(updates);
+        const nextUnseen = updates.find((update) => !seenPopups.has(update.id)) || null;
+        setLatestTenantBookingResponse(nextUnseen);
+
+        if (nextUnseen) {
+          localStorage.setItem(
+            getPGTenantPopupSeenKey(popupSeenRef),
+            JSON.stringify([...seenPopups, nextUnseen.id])
+          );
+        }
+      } catch (responseError) {
+        console.error('Error loading PG tenant booking updates:', responseError);
+      }
+    };
+
+    syncTenantResponses();
+    window.addEventListener('storage', syncTenantResponses);
+    window.addEventListener(PG_BOOKING_NOTIFICATIONS_EVENT, syncTenantResponses);
+
+    return () => {
+      window.removeEventListener('storage', syncTenantResponses);
+      window.removeEventListener(PG_BOOKING_NOTIFICATIONS_EVENT, syncTenantResponses);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const syncChats = () => {
+      const nextConversations = loadPGChatSummaries(user);
+      setChatConversations(nextConversations);
+      setSelectedConversation((currentConversation) => {
+        if (!currentConversation) {
+          return nextConversations[0] || null;
+        }
+
+        return nextConversations.find((conversation) => conversation.id === currentConversation.id) || currentConversation;
+      });
+    };
+
+    syncChats();
+    window.addEventListener('storage', syncChats);
+    window.addEventListener(PG_CHATS_UPDATED_EVENT, syncChats);
+
+    return () => {
+      window.removeEventListener('storage', syncChats);
+      window.removeEventListener(PG_CHATS_UPDATED_EVENT, syncChats);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!selectedConversation || !user) {
+      setConversationMessages([]);
+      return;
+    }
+
+    setConversationMessages(getPGConversationMessages(selectedConversation.id, user));
+  }, [selectedConversation, user]);
+
+  const filteredProperties = properties.filter(p => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return true;
+
+    const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+    const searchText = [
+      p.name,
+      p.city,
+      p.locality,
+      p.ownerName,
+      p.ownerPhone,
+      `${p.locality} ${p.city}`,
+      `${p.city} ${p.locality}`,
+      `₹${p.rent}`,
+      String(p.rent),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchTerms.every((term) => searchText.includes(term));
   });
+  const pendingTenantResponseCount = tenantBookingResponses.filter((update) => update.status === 'accepted' || update.status === 'rejected').length;
+  const unreadChatCount = chatConversations.reduce((count, conversation) => count + (conversation.unreadCount || 0), 0);
+
+  const handleOpenChat = (property) => {
+    if (!user || !property) return;
+
+    const conversation = openPGConversation({
+      property: {
+        id: property.id,
+        name: property.name,
+        location: `${property.locality}, ${property.city}`,
+      },
+      owner: {
+        ref: property.ownerId || property.ownerEmail || property.ownerPhone,
+        name: property.ownerName || 'Owner',
+        email: property.ownerEmail || '',
+      },
+      tenant: {
+        ref: getUserChatRef(user),
+        name: user.name || 'Tenant',
+        email: user.email || '',
+      },
+    });
+
+    setActiveView('chats');
+    setSelectedConversation(conversation);
+    setConversationMessages(getPGConversationMessages(conversation.id, user));
+    setChatMessageInput('');
+  };
+
+  const handleSendChatMessage = (event) => {
+    event.preventDefault();
+
+    if (!selectedConversation || !chatMessageInput.trim() || !user) {
+      return;
+    }
+
+    const response = sendPGConversationMessage(selectedConversation.id, user, chatMessageInput.trim());
+    setSelectedConversation(response.conversation);
+    setConversationMessages((prevMessages) => [...prevMessages, response.chatMessage]);
+    setChatMessageInput('');
+    setChatConversations(loadPGChatSummaries(user));
+  };
 
   const confirmBookSeat = () => {
-    if(!bookingRequest) return;
+    if(!bookingRequest || !selectedProperty) return;
+
+    const ownerRef = selectedProperty.ownerId || selectedProperty.ownerEmail || selectedProperty.ownerPhone;
+    const newNotification = {
+      id: `pg-booking-${Date.now()}`,
+      propertyId: selectedProperty.id,
+      propertyName: selectedProperty.name,
+      propertyLocation: `${selectedProperty.locality}, ${selectedProperty.city}`,
+      flatId: bookingRequest.flat.id,
+      flatNumber: bookingRequest.flat.flatNumber,
+      bedId: bookingRequest.bed.id,
+      bedNumber: bookingRequest.index,
+      tenantName: user?.name || 'Tenant',
+      tenantId: user?.id || user?._id || '',
+      tenantEmail: user?.email || '',
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+    };
+
+    try {
+      const existingNotifications = JSON.parse(localStorage.getItem(getPGOwnerNotificationsKey(ownerRef)) || '[]');
+      localStorage.setItem(
+        getPGOwnerNotificationsKey(ownerRef),
+        JSON.stringify([newNotification, ...existingNotifications])
+      );
+      window.dispatchEvent(new Event(PG_BOOKING_NOTIFICATIONS_EVENT));
+    } catch (error) {
+      console.error('Error saving PG booking notification:', error);
+    }
+
     setBookSuccess(bookingRequest.bed.id);
     setBookingRequest(null);
     setTimeout(() => {
@@ -75,8 +321,42 @@ const PGTenantDashboard = () => {
           </Link>
           <span className="text-xs font-bold bg-purple-100 text-purple-600 px-2 py-1 rounded">TENANT</span>
         </div>
-        
-        <div className="p-6">
+
+        <div className="p-6 border-b border-gray-100">
+          <div className="space-y-2 mb-5">
+            <button
+              type="button"
+              onClick={() => setActiveView('properties')}
+              className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${activeView === 'properties' ? 'bg-purple-50 text-purple-700 border border-purple-100 font-semibold' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            >
+              PG Properties
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('notifications')}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${activeView === 'notifications' ? 'bg-amber-50 text-amber-700 border border-amber-100 font-semibold' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            >
+              <span>Notifications</span>
+              {pendingTenantResponseCount > 0 && (
+                <span className="min-w-6 h-6 px-2 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
+                  {pendingTenantResponseCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('chats')}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${activeView === 'chats' ? 'bg-primary-50 text-primary-700 border border-primary-100 font-semibold' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            >
+              <span>Chats</span>
+              {unreadChatCount > 0 && (
+                <span className="min-w-6 h-6 px-2 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center">
+                  {unreadChatCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Search Location</h3>
           <div className="relative">
             <input 
@@ -86,6 +366,7 @@ const PGTenantDashboard = () => {
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setSelectedProperty(null); // Reset selection on search
+                setActiveView('properties');
               }}
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-purple-500"
             />
@@ -98,11 +379,19 @@ const PGTenantDashboard = () => {
           {filteredProperties.map(p => (
             <button 
               key={p.id}
-              onClick={() => setSelectedProperty(p)}
+              onClick={() => {
+                setSelectedProperty(p);
+                setActiveView('properties');
+              }}
               className={`w-full text-left p-4 rounded-xl transition-all border ${selectedProperty?.id === p.id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-gray-100 hover:border-purple-200 hover:shadow-sm'}`}
             >
               <h4 className="font-bold text-dark-900">{p.name}</h4>
               <p className="text-xs text-gray-500 mb-2">{p.locality}, {p.city}</p>
+              {p.ownerName && (
+                <p className="text-xs text-gray-600 mb-2">
+                  Owner: <span className="font-semibold text-dark-800">{p.ownerName}</span>
+                </p>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-purple-600">₹{p.rent}/mo</span>
                 <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold">Available</span>
@@ -111,12 +400,16 @@ const PGTenantDashboard = () => {
           ))}
           {filteredProperties.length === 0 && (
             <div className="text-center p-4 text-gray-400 text-sm">
-              No PGs found in this area.
+              No PG properties found.
             </div>
           )}
         </div>
 
         <div className="mt-auto p-4 border-t border-gray-100">
+          <button onClick={() => navigate('/')} className="w-full flex items-center space-x-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl transition-colors font-medium mb-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path></svg>
+            <span>Home Page</span>
+          </button>
           <button onClick={() => navigate('/pg')} className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             <span>Exit Dashboard</span>
@@ -126,7 +419,82 @@ const PGTenantDashboard = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 p-6 sm:p-10 relative">
-        {selectedProperty ? (
+        {activeView === 'notifications' ? (
+          tenantBookingResponses.length > 0 ? (
+            <div className="max-w-4xl mx-auto space-y-4">
+              {tenantBookingResponses.map((update) => (
+                <div
+                  key={update.id}
+                  className={`bg-white p-6 rounded-2xl shadow-sm border ${
+                    update.status === 'accepted' ? 'border-green-200' : 'border-red-200'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div>
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border mb-3 ${
+                        update.status === 'accepted'
+                          ? 'bg-green-50 text-green-700 border-green-100'
+                          : 'bg-red-50 text-red-700 border-red-100'
+                      }`}>
+                        {update.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                      </div>
+                      <p className="text-lg font-semibold text-dark-900">
+                        {update.ownerName} responded to your request for {update.propertyName}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">{update.propertyLocation}</p>
+                      <p className="text-sm text-gray-500">
+                        Bed {update.bedNumber} in Flat {update.flatNumber}
+                      </p>
+                      <p className="text-sm text-gray-500">{new Date(update.respondedAt).toLocaleString()}</p>
+                    </div>
+                    <div className={`px-4 py-2.5 rounded-xl font-semibold ${
+                      update.status === 'accepted'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const matchedProperty = properties.find((property) => property.id === update.propertyId);
+                          if (matchedProperty) {
+                            handleOpenChat(matchedProperty);
+                          }
+                        }}
+                        className="text-left"
+                      >
+                        {update.status === 'accepted' ? 'Accepted • Open Chat' : 'Rejected • Open Chat'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center p-10">
+              <div className="w-24 h-24 bg-amber-50 text-amber-200 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+              </div>
+              <h2 className="text-2xl font-bold text-dark-900 mb-2">No Notifications Yet</h2>
+              <p className="text-gray-500 max-w-sm">Accepted or rejected PG booking responses will appear here.</p>
+            </div>
+          )
+        ) : activeView === 'chats' ? (
+          <div className="max-w-6xl mx-auto">
+            <ChatPanel
+              conversations={chatConversations}
+              selectedConversation={selectedConversation}
+              messages={conversationMessages}
+              isLoadingMessages={false}
+              messageInput={chatMessageInput}
+              onMessageInputChange={setChatMessageInput}
+              onSelectConversation={(conversation) => {
+                setSelectedConversation(conversation);
+                setConversationMessages(getPGConversationMessages(conversation.id, user));
+              }}
+              onSendMessage={handleSendChatMessage}
+            />
+          </div>
+        ) : selectedProperty ? (
           <div className="max-w-6xl mx-auto pb-20">
             <header className="mb-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -136,6 +504,11 @@ const PGTenantDashboard = () => {
                     <svg className="w-5 h-5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     {selectedProperty.locality}, {selectedProperty.city}
                   </p>
+                  {selectedProperty.ownerName && (
+                    <p className="text-sm text-gray-600 mt-3">
+                      Listed by <span className="font-semibold text-dark-900">{selectedProperty.ownerName}</span>
+                    </p>
+                  )}
                 </div>
                 
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl flex items-center gap-3">
@@ -147,6 +520,15 @@ const PGTenantDashboard = () => {
                     <p className="font-bold text-dark-900 text-lg">{selectedProperty.ownerPhone}</p>
                   </div>
                 </div>
+              </div>
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenChat(selectedProperty)}
+                  className="px-5 py-3 rounded-xl font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                >
+                  Chat
+                </button>
               </div>
             </header>
 
@@ -235,7 +617,7 @@ const PGTenantDashboard = () => {
               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             <h2 className="text-2xl font-bold text-dark-900 mb-2">Search for a PG</h2>
-            <p className="text-gray-500 max-w-sm">Use the sidebar to search for areas like 'Katraj' or 'Wakad' and select a PG to view its live bed layout.</p>
+            <p className="text-gray-500 max-w-sm">Use the sidebar to search real PG properties created by owners and select one to view its live bed layout.</p>
           </div>
         )}
       </main>
@@ -282,6 +664,36 @@ const PGTenantDashboard = () => {
                 Confirm Request
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {latestTenantBookingResponse && (
+        <div className="fixed bottom-10 left-10 bg-white p-6 rounded-2xl shadow-2xl z-50 max-w-sm border border-gray-200">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                latestTenantBookingResponse.status === 'accepted' ? 'text-green-600' : 'text-red-500'
+              }`}>
+                PG Booking Update
+              </p>
+              <h4 className="font-bold text-lg text-dark-900 mb-1">
+                {latestTenantBookingResponse.status === 'accepted' ? 'Request Accepted' : 'Request Rejected'}
+              </h4>
+              <p className="text-sm text-gray-600">
+                {latestTenantBookingResponse.ownerName} responded for {latestTenantBookingResponse.propertyName}.
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                Bed {latestTenantBookingResponse.bedNumber} in Flat {latestTenantBookingResponse.flatNumber}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLatestTenantBookingResponse(null)}
+              className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

@@ -1,18 +1,30 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import authImg from '../assets/auth.png';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // mock login logic
-    console.log('Logging in...', formData);
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      await login(formData.email, formData.password);
+      navigate('/dashboard', { state: { loginSuccess: true } });
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,6 +55,12 @@ const Login = () => {
             <p className="text-gray-500">Enter your details below to access your account.</p>
           </div>
 
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6 text-left">
             <div>
               <label className="block text-sm font-medium text-dark-700 mb-2" htmlFor="email">Email Address</label>
@@ -55,6 +73,7 @@ const Login = () => {
                 className="w-full px-5 py-4 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
                 placeholder="name@example.com"
                 required
+                disabled={loading}
               />
             </div>
             
@@ -72,14 +91,16 @@ const Login = () => {
                 className="w-full px-5 py-4 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 outline-none transition-all duration-300"
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
 
             <button 
               type="submit" 
-              className="w-full bg-dark-900 text-white font-medium text-lg rounded-xl py-4 hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 shadow-soft hover:shadow-glow"
+              disabled={loading}
+              className="w-full bg-dark-900 text-white font-medium text-lg rounded-xl py-4 hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 shadow-soft hover:shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
 
