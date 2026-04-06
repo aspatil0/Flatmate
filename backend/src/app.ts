@@ -6,6 +6,8 @@ import authRoutes from './routes/authRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import postRoutes from './routes/postRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import pgOwnerRoutes from './routes/pgOwnerRoutes.js';
+import pgPropertyRoutes from './routes/pgPropertyRoutes.js';
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/pg-owner', pgOwnerRoutes);
+app.use('/api/pg-properties', pgPropertyRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

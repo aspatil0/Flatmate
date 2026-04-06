@@ -150,3 +150,46 @@ export const uploadAPI = {
     return formDataCall('/upload', formData, token);
   },
 };
+
+// PG Owner API calls
+export const pgOwnerAPI = {
+  register: (name, email, password, phone, companyName, location) =>
+    apiCall('/pg-owner/register', 'POST', { name, email, password, phone, companyName, location }),
+
+  login: (email, password) =>
+    apiCall('/pg-owner/login', 'POST', { email, password }),
+
+  getProfile: (token) =>
+    apiCall('/pg-owner/profile', 'GET', null, token),
+
+  updateProfile: (profileData, token) =>
+    apiCall('/pg-owner/profile', 'PUT', profileData, token),
+};
+
+// PG Property API calls
+export const pgPropertyAPI = {
+  getAllProperties: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.city) params.append('city', filters.city);
+    if (filters.search) params.append('search', filters.search);
+
+    const queryString = params.toString();
+    const url = queryString ? `/pg-properties/all?${queryString}` : '/pg-properties/all';
+    return apiCall(url, 'GET');
+  },
+
+  getPropertyDetails: (propertyId) =>
+    apiCall(`/pg-properties/${propertyId}`, 'GET'),
+
+  createProperty: (propertyData, token) =>
+    apiCall('/pg-properties/create', 'POST', propertyData, token),
+
+  getOwnerProperties: (token) =>
+    apiCall('/pg-properties/owner/properties', 'GET', null, token),
+
+  updateProperty: (propertyId, propertyData, token) =>
+    apiCall(`/pg-properties/${propertyId}`, 'PUT', propertyData, token),
+
+  deleteProperty: (propertyId, token) =>
+    apiCall(`/pg-properties/${propertyId}`, 'DELETE', null, token),
+};

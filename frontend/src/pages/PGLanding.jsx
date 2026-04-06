@@ -29,7 +29,7 @@ const PGLanding = () => {
               <p className="text-gray-500 text-left mb-8 relative z-10">
                 Manage your properties, visually assign beds seamlessly, handle tenant requests, and scale your PG business easily.
               </p>
-              <Link to="/pg/owner-dashboard" className="block w-full bg-dark-900 text-white font-bold py-4 rounded-xl hover:bg-primary-600 hover:shadow-glow transition-all relative z-10 text-center">
+              <Link to="/pg/owner-login" className="block w-full bg-dark-900 text-white font-bold py-4 rounded-xl hover:bg-primary-600 hover:shadow-glow transition-all relative z-10 text-center">
                 Owner Dashboard
               </Link>
             </div>

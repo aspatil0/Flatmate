@@ -976,13 +976,20 @@ const Dashboard = () => {
               </span>
             )}
           </button>
-          <div className="pt-8 pb-2">
+          <div className="pt-8 pb-2 space-y-2">
             <button 
               onClick={() => setIsAddingPost(true)}
               className="w-full bg-dark-900 text-white font-medium py-3 rounded-xl shadow-soft hover:shadow-glow hover:bg-primary-600 transition-all flex items-center justify-center"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
               Add New Post
+            </button>
+            <button 
+              onClick={() => navigate('/pg/browse')}
+              className="w-full bg-purple-600 text-white font-medium py-3 rounded-xl shadow-soft hover:shadow-glow hover:bg-purple-700 transition-all flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path></svg>
+              Rent in PG
             </button>
           </div>
         </nav>
